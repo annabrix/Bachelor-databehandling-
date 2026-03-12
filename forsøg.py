@@ -45,7 +45,7 @@ df_data["extrakm"] = pd.to_numeric(df_data["extrakm"], errors="coerce").fillna(0
 df_data["sum_km"] = df_data["km"].values + df_data["extrakm"].values
 
 #fjerner alt det unødvendige for analysen, da det er en stor dataramme og det gør det nemmere at arbejde med
-df_data = df_data.drop(columns=["km", "extrakm", "kon.nr", "spcgrp", "spcnr", "st.u", "oprettelse", "udl.land", "lejer", "firmabss", "land", "firma", "model", "km.incl", "extrakm-dkk", "forsikring", "dekort", "exp-check-in", "check-in", "check-out", "moms", "total"])
+#df_data = df_data.drop(columns=["km", "extrakm", "kon.nr", "spcgrp", "spcnr", "st.u", "oprettelse", "udl.land", "lejer", "firmabss", "land", "firma", "model", "km.incl", "extrakm-dkk", "forsikring", "dekort", "exp-check-in", "check-in", "check-out", "moms", "total"])
 
 
 #%% Status 4, EV, 932+939, gmk
@@ -147,7 +147,7 @@ plt.ylabel("Number of arrivals")
 plt.title("Distribution of car arrivals by day of week")
 plt.show()
 
-#%% Bilers anjkomst fordelt på dagene for hver time
+#%% Bilers ankomst fordelt på dagene for hver time
 # lav kolonner for time og ugedag
 df_gmk["hour"] = df_gmk.index.hour
 df_gmk["day"] = df_gmk.index.dayofweek
@@ -245,6 +245,30 @@ for i, ax in enumerate(axes):
 plt.xlabel("Hour of day")
 plt.tight_layout()
 plt.show()
+
+#%% Månedsfordelingen på et år gmk
+df_gmk["month"] = df_gmk.index.month
+month_counts = df_gmk["month"].value_counts().sort_index()
+
+month_distribution = month_counts / month_counts.sum()
+
+month_counts.plot(kind="bar")
+plt.xlabel("Month")
+plt.ylabel("Number of arrivals")
+plt.title("Distribution of car arrivals by month in gmk")
+plt.show()
+#%% Månedsfordelingen på et år gmk
+df_data["month"] = df_data.index.month
+month_counts_all = df_data["month"].value_counts().sort_index()
+
+month_distribution_all = month_counts_all / month_counts_all.sum()
+month_counts_all.plot(kind="bar")
+plt.xlabel("Month")
+plt.ylabel("Number of arrivals")
+plt.title("Distribution of car arrivals by month for all locations")
+plt.show()
+
+
 # %% heatmap for timer og ugedage (ikke så relevant)
 
 # lav kolonner for time og ugedag
@@ -293,4 +317,24 @@ plt.ylabel("Day of week")
 plt.title("Distribution of car arrivals by day and hour")
 plt.show()
 
+#%% Leger lidt¨
+cols = ["sum_km","ud.tid","bilgrp","k/f","st.i","forsikring","mærke","leje.dg"]
 
+import seaborn as sns
+
+plt.figure(figsize=(10,6))
+sns.heatmap(df_data[cols], cmap="viridis")
+
+plt.title("Heatmap of 10 columns")
+plt.show()
+
+df_data["hour"] = df_data.index.hour
+#%%
+plt.figure(figsize=(12,6))
+sns.heatmap(heatmap_data, cmap="viridis")
+
+plt.xlabel("Columns")
+plt.ylabel("Hour of day")
+plt.title("Average values by hour")
+
+plt.show()
