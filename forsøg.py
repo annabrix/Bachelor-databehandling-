@@ -57,7 +57,7 @@ df_data = df_data[mask_s6]
 # her finder jeg elbilerne samt dem der har betalt for ikke at være opladt
 mask_EV = df_data["bilgrp"].astype(str).str.match(r"^.E")
 df_EV = df_data[mask_EV]
-#print("EV", df_EV) #her er 3161  rækker
+print("EV", df_EV) #her er 3161  rækker
 
 cols_932 = []
 cols_932 = [col for col in df_data.columns
@@ -81,7 +81,7 @@ df_939 = df_EV.loc[mask_939]
 
 df_notfull = pd.concat([df_932_notfull, df_939])
 df_notfull = df_notfull.sort_index()
-#print("rate 939+935", df_notfull) #her er 309 rækker
+print("rate 939+935", df_notfull) #her er 309 rækker
 
 
 #Finder de biler der kommer ind på gammel kongevej
@@ -317,8 +317,9 @@ plt.ylabel("Day of week")
 plt.title("Distribution of car arrivals by day and hour")
 plt.show()
 
-#%% Leger lidt¨
+#%% Leger lidt
 cols = ["sum_km","ud.tid","bilgrp","k/f","st.i","forsikring","mærke","leje.dg"]
+#the country of which the renter is from 
 
 import seaborn as sns
 
