@@ -42,17 +42,37 @@ df_data["ind.tid"] = dt
 df_data.set_index("ind.tid", inplace=True)
 df_data = df_data[~df_data.index.isna()]
 
-df_fuel["Transaction Date/Time"] = dt_fuel
+
 df_fuel.set_index("Transaction Date/Time", inplace=True)
 df_fuel = df_fuel[~df_fuel.index.isna()]
-#print(df_data.index)
-# print("hej")
-# print(df_fuel.index)
+print("Dataframe with fuels:", df_fuel)
+
+# Create 'ind.tid' column from index
+df_fuel['ind.tid'] = pd.to_datetime(df_fuel.index).strftime("%d-%m-%Y %H:%M")
+
+
+# Create formatted string from df_data index
+df_data['ind.tid_str'] = df_data.index.strftime("%d-%m-%Y %H:%M")
+
+# Merge
+df_merged = pd.merge(
+    df_data,
+    df_fuel[['ind.tid', 'Vehicle Number', 'Odometer', 'Product', 'Volume', 'Customer Price', 'Total Price']],
+    left_on='ind.tid_str',
+    right_on='ind.tid',
+    how='left'
+)
+print(df_merged.head())
 
 #Finder de biler der kommer ind på gammel kongevej
 mask_gmk = df_data["st.i"].astype(str).str.fullmatch("5.0", na=False)
 df_gmk = df_data[mask_gmk]
 
+
+# Gem det mergede dataframe som ny CSV
+df_merged.to_csv("merged_data.csv", index=False, encoding="utf-8")
+
+print(df_merged["Volume"].notna().sum())
 
 
 
