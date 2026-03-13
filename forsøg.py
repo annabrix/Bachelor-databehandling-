@@ -25,6 +25,8 @@ df_data = pd.concat([df_data1, df_data2], ignore_index=True)
 
 # fjerner eventuelle mellemrum i kolonnenavnene, da det kan give problemer senere
 df_data.columns = df_data.columns.str.strip()
+df_fuel.columns = df_fuel.columns.str.strip()
+
 
 # ind.tid har nogle gange 24:00, hvilket ikke er en gyldig tid, så det erstattes med 00:00 og tilføjer en dag
 dt = df_data["ind.tid"].astype(str).str.strip()
@@ -71,9 +73,7 @@ df_data["sum_km"] = df_data["km"].values + df_data["extrakm"].values
 
 
 #%% Status 4, EV, 932+939, gmk
-#her finder jeg kun status 4
 
-#print("data_s4", df_data) #130783  rækker
 
 # her finder jeg elbilerne samt dem der har betalt for ikke at være opladt
 mask_EV = df_data["bilgrp"].astype(str).str.match(r"^.E")
