@@ -57,34 +57,9 @@ print(df_fuel)
 #%%
 # Finder de biler der kommer ind på gammel kongevej
 mask_gmk = df_data["st.i"].astype(str).str.fullmatch("5.0", na=False)
-df_gmk = df_data.loc[mask_gmk].copy()
+df_gmk = df_data.loc[mask_gmk]
 
-# lav fælles dagskolonne ud fra index
-df_gmk["date"] = df_gmk.index.normalize()
-df_fuel["date"] = df_fuel.index.normalize()
 
-# ensret nummerplader
-df_gmk["nummerplade"] = df_gmk["reg.nr"].astype(str).str.strip().str.upper()
-df_fuel["nummerplade"] = df_fuel["Vehicle Number"].astype(str).str.strip().str.upper()
-
-# summer fuel pr. dag pr. nummerplade i fil 2
-fuel_per_day = (
-    df_fuel.groupby(["date", "nummerplade"], as_index=False)["Volume"]
-    .sum()
-)
-
-# merge fuel ind i fil 1
-result = df_gmk.reset_index().merge(
-    fuel_per_day,
-    on=["date", "nummerplade"],
-    how="left"
-)
-
-# valgfrit: sæt ind.tid tilbage som index
-result = result.set_index("ind.tid")
-result = result.drop(columns=["mærke", "ud.tid", "leje.dg","km", "extrakm", "kon.nr", "spcgrp", "spcnr", "st.u", "oprettelse", "udl.land", "lejer", "firmabss", "land", "firma", "model", "km.incl", "extrakm-dkk", "forsikring", "dekort", "exp-check-in", "check-in", "check-out", "moms", "total"])
-
-print(result["Volume"].notna().sum())
 #%%
 #samler km og extrakm i en kolonne, da det er det samlede antal km der er interessant for analysen
 df_data["km"] = pd.to_numeric(df_data["km"], errors="coerce").fillna(0)
