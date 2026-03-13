@@ -44,6 +44,7 @@ df_data["ind.tid"] = dt
 df_data.set_index("ind.tid", inplace=True)
 df_data = df_data[~df_data.index.isna()]
 
+
 #fjerner alle rækker som ikke er status 4
 mask_df_data = df_data["stat"].astype(str).str.contains("4", na=False)
 df_data = df_data.loc[mask_df_data]
