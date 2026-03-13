@@ -30,9 +30,11 @@ df_data.columns = df_data.columns.str.strip()
 dt = df_data["ind.tid"].astype(str).str.strip()
 mask = dt.str.endswith("24:00")
 
+dt_fuel = df_fuel["Transaction Date/Time"].astype(str).str.strip()
+
 dt = dt.str.replace("24:00", "00:00", regex=False)
 dt = pd.to_datetime(dt, format="%d-%m-%Y %H:%M", dayfirst=True)
-df_fuel["Transaction Date/Time"] = pd.to_datetime(df_fuel["Transaction Date/Time"], format="%Y-%m-%d %H:%M:%S")
+dt_fuel= pd.to_datetime(df_fuel["Transaction Date/Time"], format="%Y-%m-%d %H:%M:%S")
 dt.loc[mask] = dt.loc[mask] + pd.Timedelta(days=1)
 
 #fjerne alle rækker hvor ind.tid er NaN
@@ -46,6 +48,12 @@ df_fuel = df_fuel[~df_fuel.index.isna()]
 #print(df_data.index)
 # print("hej")
 # print(df_fuel.index)
+
+#Finder de biler der kommer ind på gammel kongevej
+mask_gmk = df_data["st.i"].astype(str).str.fullmatch("5.0", na=False)
+df_gmk = df_data[mask_gmk]
+
+
 
 
 #%%
@@ -94,9 +102,6 @@ df_notfull = df_notfull.sort_index()
 print("rate 939+935", df_notfull) #her er 309 rækker
 
 
-#Finder de biler der kommer ind på gammel kongevej
-mask_gmk = df_data["st.i"].astype(str).str.fullmatch("5.0", na=False)
-df_gmk = df_data[mask_gmk]
 
 #print("gmk", df_gmk)
 
