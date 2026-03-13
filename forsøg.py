@@ -44,58 +44,63 @@ df_data["ind.tid"] = dt
 df_data.set_index("ind.tid", inplace=True)
 df_data = df_data[~df_data.index.isna()]
 
-
-df_fuel.set_index("Transaction Date/Time", inplace=True)
-df_fuel = df_fuel[~df_fuel.index.isna()]
-print("Dataframe with fuels:", df_fuel)
-
-# Create 'ind.tid' column from index
-df_fuel['ind.tid'] = pd.to_datetime(df_fuel.index).strftime("%d-%m-%Y %H:%M")
-
-
-# Create formatted string from df_data index
-df_data['ind.tid_str'] = df_data.index.strftime("%d-%m-%Y %H:%M")
-
-# Merge
-df_merged = pd.merge(
-    df_data,
-    df_fuel[['ind.tid', 'Vehicle Number', 'Odometer', 'Product', 'Volume', 'Customer Price', 'Total Price']],
-    left_on='ind.tid_str',
-    right_on='ind.tid',
-    how='left'
-)
-print(df_merged.head())
+#fjerner alle rækker som ikke er status 4
+mask_df_data = df_data["stat"].astype(str).str.contains("4", na=False)
+df_data = df_data.loc[mask_df_data]
 
 #Finder de biler der kommer ind på gammel kongevej
 mask_gmk = df_data["st.i"].astype(str).str.fullmatch("5.0", na=False)
 df_gmk = df_data.loc[mask_gmk].copy()
 
-# lav fælles dagskolonne ud fra index
-df_gmk["date"] = df_gmk.index.normalize()
-df_fuel["date"] = df_fuel.index.normalize()
+df_fuel.set_index("Transaction Date/Time", inplace=True)
+df_fuel = df_fuel[~df_fuel.index.isna()]
+#print("Dataframe with fuels:", df_fuel)
 
-# ensret nummerplader
-df_gmk["nummerplade"] = df_gmk["reg.nr"].astype(str).str.strip().str.upper()
-df_fuel["nummerplade"] = df_fuel["Vehicle Number"].astype(str).str.strip().str.upper()
+# Create 'ind.tid' column from index
+df_fuel['ind.tid'] = pd.to_datetime(df_fuel.index).strftime("%d-%m-%Y %H:%M")
 
-# summer fuel pr. dag pr. nummerplade i fil 2
-fuel_per_day = (
-    df_fuel.groupby(["date", "nummerplade"], as_index=False)["Volume"]
-    .sum()
+# Create formatted string from df_data index
+df_gmk['ind.tid_str'] = df_gmk.index.strftime("%d-%m-%Y %H:%M")
+
+# Merge
+df_merged = pd.merge(
+    df_gmk,
+    df_fuel[['ind.tid', 'Vehicle Number', 'Odometer', 'Product', 'Volume', 'Customer Price', 'Total Price']],
+    left_on='ind.tid_str',
+    right_on='ind.tid',
+    how='left'
 )
+df_merged = df_merged.drop(columns=["mærke","k/f" ,"ud.tid", "leje.dg","km", "extrakm", "kon.nr", "spcgrp", "spcnr", "st.u", "oprettelse", "udl.land", "lejer", "firmabss", "land", "firma", "model", "km.incl", "extrakm-dkk", "forsikring", "dekort", "exp-check-in", "check-in", "check-out", "moms", "total"])
 
-# merge fuel ind i fil 1
-result = df_gmk.reset_index().merge(
-    fuel_per_day,
-    on=["date", "nummerplade"],
-    how="left"
-)
+print(df_merged)
 
-# valgfrit: sæt ind.tid tilbage som index
-result = result.set_index("ind.tid")
-result = result.drop(columns=["mærke", "ud.tid", "leje.dg","km", "extrakm", "kon.nr", "spcgrp", "spcnr", "st.u", "oprettelse", "udl.land", "lejer", "firmabss", "land", "firma", "model", "km.incl", "extrakm-dkk", "forsikring", "dekort", "exp-check-in", "check-in", "check-out", "moms", "total"])
 
-print(result["Volume"].notna().sum())
+# # lav fælles dagskolonne ud fra index
+# df_gmk["date"] = df_gmk.index.normalize()
+# df_fuel["date"] = df_fuel.index.normalize()
+
+# # ensret nummerplader
+# df_gmk["nummerplade"] = df_gmk["reg.nr"].astype(str).str.strip().str.upper()
+# df_fuel["nummerplade"] = df_fuel["Vehicle Number"].astype(str).str.strip().str.upper()
+
+# # summer fuel pr. dag pr. nummerplade i fil 2
+# fuel_per_day = (
+#     df_fuel.groupby(["date", "nummerplade"], as_index=False)["Volume"]
+#     .sum()
+# )
+
+# # merge fuel ind i fil 1
+# result = df_gmk.reset_index().merge(
+#     fuel_per_day,
+#     on=["date", "nummerplade"],
+#     how="left"
+# )
+
+# # valgfrit: sæt ind.tid tilbage som index
+# result = result.set_index("ind.tid")
+# result = result.drop(columns=["mærke", "ud.tid", "leje.dg","km", "extrakm", "kon.nr", "spcgrp", "spcnr", "st.u", "oprettelse", "udl.land", "lejer", "firmabss", "land", "firma", "model", "km.incl", "extrakm-dkk", "forsikring", "dekort", "exp-check-in", "check-in", "check-out", "moms", "total"])
+
+# print(result["Volume"].notna().sum())
 #%%
 #samler km og extrakm i en kolonne, da det er det samlede antal km der er interessant for analysen
 df_data["km"] = pd.to_numeric(df_data["km"], errors="coerce").fillna(0)
