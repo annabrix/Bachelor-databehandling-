@@ -61,6 +61,8 @@ df_gmk = df_gmk.drop(columns=[
     "forsikring", "total", "dekort", "check-out", "exp-check-in", "check-in"
 ])
 
+print("rows with fuel data before merge:", df_fuel["Volume"].notna().sum())
+
 # Tilføj dato-kolonner til merge (uden at ændre index)
 df_gmk["dato"] = pd.to_datetime(df_gmk.index).normalize()
 df_fuel["dato"] = pd.to_datetime(df_fuel["Transaction Date/Time"]).dt.normalize()
@@ -88,7 +90,7 @@ df_gmk = df_gmk.drop(columns=["dato"])
 
 print("Dataframe for gmk with merged Volume", df_gmk)
 
-print("Number of rows with fuel data:", df_gmk["Volume"].notna().sum())
+print("Number of rows with fuel data:", df_fuel["Volume"].notna().sum())
 
 #%%
 # Laver simpelt plot af volumen fuel pr dag:
@@ -104,6 +106,9 @@ plt.title("Samlet fuel volume pr. dag")
 plt.xticks(rotation=45)
 plt.tight_layout()
 plt.show()
+
+#%%
+
 
 #%%
 #samler km og extrakm i en kolonne, da det er det samlede antal km der er interessant for analysen
