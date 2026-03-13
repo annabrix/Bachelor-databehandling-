@@ -47,7 +47,13 @@ df_data = df_data[~df_data.index.isna()]
 
 df_fuel.set_index("Transaction Date/Time", inplace=True)
 df_fuel = df_fuel[~df_fuel.index.isna()]
+
 print("Dataframe with fuels:", df_fuel)
+
+# Ensure df_fuel.index is a DatetimeIndex before using .normalize()
+df_fuel.index = pd.to_datetime(df_fuel.index)
+
+
 
 # Create 'ind.tid' column from index
 df_fuel['ind.tid'] = pd.to_datetime(df_fuel.index).strftime("%d-%m-%Y %H:%M")
@@ -140,7 +146,7 @@ df_notfull = pd.concat([df_932_notfull, df_939])
 df_notfull = df_notfull.sort_index()
 print("rate 939+935", df_notfull) #her er 309 rækker
 
-
+#comment
 
 #print("gmk", df_gmk)
 
