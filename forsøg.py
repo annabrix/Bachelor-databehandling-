@@ -74,6 +74,10 @@ df_merged.to_csv("merged_data.csv", index=False, encoding="utf-8")
 
 print(df_merged["Volume"].notna().sum())
 
+#fjerne alle rækker hvor Volumen er NaN
+df_data["ind.tid"] = dt
+df_data.set_index("ind.tid", inplace=True)
+df_data = df_data[~df_data.index.isna()]
 
 
 #%%
