@@ -14,9 +14,11 @@ import pandas as pd
 #indlæser csv filerne og sætter ind.tid som index, da det er det der skal analyseres på
 file_PE = os.path.join(os.getcwd(), 'Alle RA 2025 pr. 2026-03-11 Q1-Q2.csv')
 file_PE2 = os.path.join(os.getcwd(), 'Alle RA 2025 pr. 2026-03-11 Q3-Q4.csv')
+file_fuel = os.path.join(os.getcwd(), 'fuel gmk.csv')
 
 df_data1 = pd.read_csv(file_PE, sep=';', encoding='latin1')
 df_data2 = pd.read_csv(file_PE2, sep=';', encoding='latin1')
+df_fuel = pd.read_csv(file_fuel, sep=',')
 
 # samler de to datasæt, så vi kigger på et helt år
 df_data = pd.concat([df_data1, df_data2], ignore_index=True)
@@ -30,13 +32,21 @@ mask = dt.str.endswith("24:00")
 
 dt = dt.str.replace("24:00", "00:00", regex=False)
 dt = pd.to_datetime(dt, format="%d-%m-%Y %H:%M", dayfirst=True)
+df_fuel["Transaction Date/Time"] = pd.to_datetime(df_fuel["Transaction Date/Time"], format="%Y-%m-%d %H:%M:%S")
 dt.loc[mask] = dt.loc[mask] + pd.Timedelta(days=1)
 
 #fjerne alle rækker hvor ind.tid er NaN
 df_data["ind.tid"] = dt
 df_data.set_index("ind.tid", inplace=True)
 df_data = df_data[~df_data.index.isna()]
+
+
+df_fuel.set_index("Transaction Date/Time", inplace=True)
+df_fuel = df_fuel[~df_fuel.index.isna()]
 #print(df_data.index)
+# print("hej")
+# print(df_fuel.index)
+
 
 #%%
 #samler km og extrakm i en kolonne, da det er det samlede antal km der er interessant for analysen
@@ -317,7 +327,7 @@ plt.ylabel("Day of week")
 plt.title("Distribution of car arrivals by day and hour")
 plt.show()
 
-#%% Leger lidt
+ #%% Leger lidt
 cols = ["sum_km","ud.tid","bilgrp","k/f","st.i","forsikring","mærke","leje.dg"]
 #the country of which the renter is from 
 
