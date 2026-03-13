@@ -42,7 +42,7 @@ df_data["ind.tid"] = dt
 df_data.set_index("ind.tid", inplace=True)
 df_data = df_data[~df_data.index.isna()]
 
-
+df_fuel["Transaction Date/Time"] = dt_fuel
 df_fuel.set_index("Transaction Date/Time", inplace=True)
 df_fuel = df_fuel[~df_fuel.index.isna()]
 #print(df_data.index)
