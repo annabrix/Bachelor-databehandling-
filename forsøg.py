@@ -36,18 +36,25 @@ dt_fuel = df_fuel["Transaction Date/Time"].astype(str).str.strip()
 
 dt = dt.str.replace("24:00", "00:00", regex=False)
 dt = pd.to_datetime(dt, format="%d-%m-%Y %H:%M", dayfirst=True)
-dt_fuel= pd.to_datetime(df_fuel["Transaction Date/Time"], format="%Y-%m-%d %H:%M:%S")
+df_fuel["Transaction Date/Time"] = pd.to_datetime(
+    df_fuel["Transaction Date/Time"],
+    format="%Y-%m-%d %H:%M:%S",
+    errors="coerce"
+)
 dt.loc[mask] = dt.loc[mask] + pd.Timedelta(days=1)
+
 
 #fjerne alle rækker hvor ind.tid er NaN
 df_data["ind.tid"] = dt
 df_data.set_index("ind.tid", inplace=True)
 df_data = df_data[~df_data.index.isna()]
 
+print(df_data.columns)  
 
 #fjerner alle rækker som ikke er status 4
 mask_df_data = df_data["stat"].astype(str).str.contains("4", na=False)
 df_data = df_data.loc[mask_df_data]
+
 
 #Finder de biler der kommer ind på gammel kongevej
 mask_gmk = df_data["st.i"].astype(str).str.fullmatch("5.0", na=False)
@@ -108,7 +115,17 @@ plt.tight_layout()
 plt.show()
 
 #%%
+#Laver plot af volumen pr hour for alle dagene:
+df_fuel["hour"] = df_fuel["Transaction Date/Time"].dt.hour
+hour_counts_fuel = df_fuel["hour"].value_counts().sort_index()
 
+print(hour_counts_fuel)
+
+hour_counts_fuel.plot(kind="bar")
+plt.xlabel("Hour of day")
+plt.ylabel("Number of arrivals")
+plt.title("Distribution of fuels pr hour on the day")
+plt.show()
 
 #%%
 #samler km og extrakm i en kolonne, da det er det samlede antal km der er interessant for analysen
@@ -128,7 +145,8 @@ df_data["sum_km"] = df_data["km"].values + df_data["extrakm"].values
 # her finder jeg elbilerne samt dem der har betalt for ikke at være opladt
 mask_EV = df_data["bilgrp"].astype(str).str.match(r"^.E")
 df_EV = df_data[mask_EV]
-print("EV", df_EV) #her er 3161  rækker
+#print("EV", df_EV) #her er 3161  rækker
+print(df_EV.columns)
 
 cols_932 = []
 cols_932 = [col for col in df_data.columns
@@ -158,6 +176,13 @@ print("rate 939+935", df_notfull) #her er 309 rækker
 
 #print("gmk", df_gmk)
 
+# %% hvornår bliver elbilerne udlejet ?
+df_EV["hour"] = df_EV.index.hour
+hour_counts_EV = df_EV["hour"].value_counts().sort_index()
+print(df_EV.columns)
+
+#df_EV = df_EV.drop(columns=['kon.nr', 'spcgrp', 'spcnr', 'km', 'k/f', 'st.u', 'st.i', 'stat', 'oprettelse', 'udl.land', 'lejer', 'firmabss', 'firma', 'land','extrakm', 'extrakm-dkk', 'moms', 'forsikring', 'dekort', 'check-out','exp-check-in')
+
 # %% hvornår ankommer bilerne på gammel kongevej?
 
 df_gmk["hour"] = df_gmk.index.hour
@@ -165,9 +190,9 @@ hour_counts = df_gmk["hour"].value_counts().sort_index()
 
 print(hour_counts)
 
-hour_distribution = hour_counts / hour_counts.sum()
+#hour_distribution = hour_counts / hour_counts.sum()
 
-print(hour_distribution)
+#print(hour_distribution)
 hour_counts.plot(kind="bar")
 plt.xlabel("Hour of day")
 plt.ylabel("Number of arrivals")
@@ -175,8 +200,6 @@ plt.title("Distribution of car arrivals by hour")
 plt.show()
 
 # %%  hvornår ankommer elbiler vs ikke er ladet op?
-
-
 df_EV["hour"] = df_EV.index.hour
 hour_counts_EV = df_EV["hour"].value_counts().sort_index()
 df_notfull["hour"] = df_notfull.index.hour
@@ -196,7 +219,7 @@ hour_compare = pd.DataFrame({
 hour_compare.plot(kind="bar")
 plt.xlabel("Hour of day")
 plt.ylabel("Number of arrivals")
-plt.title("Distribution of car arrivals by hour")
+plt.title("Distribution of EV arrivals by hour")
 plt.show()
 
 

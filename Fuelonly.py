@@ -28,6 +28,21 @@ df_fuel["Volume"] = pd.to_numeric(df_fuel["Volume"], errors="coerce")
 # Sorterer efter tid
 df_fuel = df_fuel.sort_values("Transaction Date/Time")
 
+#%%
+# Laver simpelt plot af volumen fuel pr dag:
+# Summer samlet volume pr. dag
+volume_per_day = df_fuel["Volume"].groupby(df_fuel["Transaction Date/Time"].dt.date).sum()
+
+# Plot
+plt.figure(figsize=(12,6))
+plt.plot(volume_per_day.index, volume_per_day.values)
+plt.xlabel("Dato")
+plt.ylabel("Samlet volumen")
+plt.title("Samlet fuel volume pr. dag")
+plt.xticks(rotation=45)
+plt.tight_layout()
+plt.show()
+
 # %%
 # Summerer volumen pr. dag og fuel-type
 fuel_daily = (
