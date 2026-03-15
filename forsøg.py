@@ -30,28 +30,40 @@ df_fuel.columns = df_fuel.columns.str.strip()
 
 # ind.tid har nogle gange 24:00, hvilket ikke er en gyldig tid, så det erstattes med 00:00 og tilføjer en dag
 dt = df_data["ind.tid"].astype(str).str.strip()
+dt_ud = df_data["ud.tid"].astype(str).str.strip()
+
 mask = dt.str.endswith("24:00")
 
 dt_fuel = df_fuel["Transaction Date/Time"].astype(str).str.strip()
 
 dt = dt.str.replace("24:00", "00:00", regex=False)
+dt_ud = dt_ud.str.replace("24:00", "00:00", regex=False)
+
 dt = pd.to_datetime(dt, format="%d-%m-%Y %H:%M", dayfirst=True)
+dt_ud = pd.to_datetime(dt_ud, format="%d-%m-%Y %H:%M", dayfirst=True)
 df_fuel["Transaction Date/Time"] = pd.to_datetime(
     df_fuel["Transaction Date/Time"],
     format="%Y-%m-%d %H:%M:%S",
     errors="coerce"
 )
+#laver ny kolonne som har samme datetime format som de andre dataframes
+df_fuel["Transaction Date/Time_str"] = df_fuel["Transaction Date/Time"].dt.strftime("%d-%m-%Y %H:%M:%S")
+
 dt.loc[mask] = dt.loc[mask] + pd.Timedelta(days=1)
+dt_ud.loc[mask] = dt_ud.loc[mask] + pd.Timedelta(days=1)
 
-
-#fjerne alle rækker hvor ind.tid er NaN
+#indsæter nye ind.tid og ud.tid og fjerner alle rækker hvor de er NaN
 df_data["ind.tid"] = dt
+df_data["ud.tid"] = dt_ud
+df_data = df_data.dropna(subset=["ind.tid"])
+df_data = df_data.dropna(subset=["ud.tid"])
+
+#Sætter ind.tid som index, da det er det der skal analyseres på først
 df_data.set_index("ind.tid", inplace=True)
-df_data = df_data[~df_data.index.isna()]
 
-print(df_data.columns)  
+#print(df_data.columns)  
 
-#fjerner alle rækker som ikke er status 4
+#fjerner alle rækker som ikke er status 4 da status 4 er afsluttede udlejninger
 mask_df_data = df_data["stat"].astype(str).str.contains("4", na=False)
 df_data = df_data.loc[mask_df_data]
 
@@ -72,7 +84,7 @@ print("rows with fuel data before merge:", df_fuel["Volume"].notna().sum())
 
 # Tilføj dato-kolonner til merge (uden at ændre index)
 df_gmk["dato"] = pd.to_datetime(df_gmk.index).normalize()
-df_fuel["dato"] = pd.to_datetime(df_fuel["Transaction Date/Time"]).dt.normalize()
+df_fuel["dato"] = pd.to_datetime(df_fuel["Transaction Date/Time_str"]).dt.normalize()
 
 # Ensret nummerplader
 df_gmk["nummerplade"] = df_gmk["reg.nr"].astype(str).str.replace(" ", "").str.strip().str.upper()
@@ -409,24 +421,52 @@ plt.title("Distribution of car arrivals by day and hour")
 plt.show()
 
  #%% Leger lidt
-cols = ["sum_km","ud.tid","bilgrp","k/f","st.i","forsikring","mærke","leje.dg"]
+#cols = ["sum_km","ud.tid","bilgrp","k/f","st.i","forsikring","mærke","leje.dg"]
 #the country of which the renter is from 
 
 import seaborn as sns
 
-plt.figure(figsize=(10,6))
-sns.heatmap(df_data[cols], cmap="viridis")
+#plt.figure(figsize=(10,6))
+#sns.heatmap(df_data[cols], cmap="viridis")
 
-plt.title("Heatmap of 10 columns")
-plt.show()
+#plt.title("Heatmap of 10 columns")
+#plt.show()
 
-df_data["hour"] = df_data.index.hour
+#df_data["hour"] = df_data.index.hour
 #%%
-plt.figure(figsize=(12,6))
-sns.heatmap(heatmap_data, cmap="viridis")
+#plt.figure(figsize=(12,6))
+#sns.heatmap(heatmap_data, cmap="viridis")
 
-plt.xlabel("Columns")
-plt.ylabel("Hour of day")
-plt.title("Average values by hour")
+#lt.xlabel("Columns")
+#plt.ylabel("Hour of day")
+#plt.title("Average values by hour")
+
+#plt.show()
+
+#%%
+#Undersøger hvor mange udlejninger vs antallet af udlejningsdage 
+#For at se fordelingen i udlejningsperioderne:
+# Kopiér kolonnen
+rental_days = df_data["leje.dg"].dropna().copy()
+
+# Saml alle >30 dage i kategorien 30
+rental_days[rental_days > 30] = 30
+
+# Plot histogram
+plt.figure(figsize=(10,6))
+plt.hist(rental_days, bins=range(1,32), edgecolor="black")
+
+plt.xlabel("Rental duration (days)")
+plt.ylabel("Number of rentals")
+plt.title("Distribution of rental durations")
+
+# x-akse labels
+ticks = list(range(1,31))
+labels = [str(t) for t in ticks]
+labels[-1] = "30+"
+
+plt.xticks(ticks, labels, rotation=90)
 
 plt.show()
+
+# %%
