@@ -470,3 +470,9 @@ plt.xticks(ticks, labels, rotation=90)
 plt.show()
 
 # %%
+#Hvor mange procentdel af udlejningerne varer 1-7 dage?
+short_rentals = rental_days[rental_days <= 7].count()
+total_rentals = rental_days.count()
+print("Percentage of rentals lasting 1-7 days:", short_rentals / total_rentals * 100, "%")
+
+# %%
