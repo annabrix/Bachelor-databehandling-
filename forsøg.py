@@ -1,6 +1,8 @@
 #%%
+from matplotlib import patches
 import numpy as np
 import matplotlib.pyplot as plt
+from requests import patch
 import statsmodels.api as sm
 from IPython.display import Markdown as md
 from sklearn.metrics import mean_squared_error, mean_absolute_error
@@ -444,8 +446,10 @@ import seaborn as sns
 #plt.show()
 
 #%%
-#Undersøger hvor mange udlejninger vs antallet af udlejningsdage 
-#For at se fordelingen i udlejningsperioderne:
+#%%
+# Undersøger hvor mange udlejninger vs antallet af udlejningsdage
+# For at se fordelingen i udlejningsperioderne:
+
 # Kopiér kolonnen
 rental_days = df_data["leje.dg"].dropna().copy()
 
@@ -454,7 +458,31 @@ rental_days[rental_days > 30] = 30
 
 # Plot histogram
 plt.figure(figsize=(10,6))
-plt.hist(rental_days, bins=range(1,32), edgecolor="black")
+
+counts, bins, patches = plt.hist(
+    rental_days,
+    bins=range(1,32),
+    edgecolor="black"
+)
+#Beregner hvor mange procentdel af udlejningerne varer 1-7 dage?
+percentage = rental_days[rental_days <= 7].count() / rental_days.count() * 100
+
+plt.text(
+    8,  # x-position i plottet
+    plt.ylim()[1]*0.8,  # y-position
+    "Percentage of rentals lasting 1–7 days: {:.2f}%".format(percentage),
+    bbox=dict(facecolor="white", edgecolor="black")
+)
+
+# Farver bars i Europcars farver
+for i, patch in enumerate(patches):
+
+    day = bins[i]
+
+    if 1 <= day <= 7:
+        patch.set_facecolor("yellow")   # 1-7 dage
+    else:
+        patch.set_facecolor("green")    # resten
 
 plt.xlabel("Rental duration (days)")
 plt.ylabel("Number of rentals")
