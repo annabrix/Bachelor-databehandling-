@@ -1,4 +1,5 @@
 #%%
+from itertools import count
 from matplotlib import patches
 import numpy as np
 import matplotlib.pyplot as plt
@@ -19,30 +20,34 @@ file_PE2 = os.path.join(os.getcwd(), 'Alle RA 2025 pr. 2026-03-11 Q3-Q4.csv')
 file_fuel = os.path.join(os.getcwd(), 'fuel gmk.csv')
 
 df_data1 = pd.read_csv(file_PE, sep=';', encoding='latin1')
+print(len(df_data1))
+
 df_data2 = pd.read_csv(file_PE2, sep=';', encoding='latin1')
 df_fuel = pd.read_csv(file_fuel, sep=',')
 
 # samler de to datasæt, så vi kigger på et helt år
 df_data = pd.concat([df_data1, df_data2], ignore_index=True)
+print(len(df_data))
 
 # fjerner eventuelle mellemrum i kolonnenavnene, da det kan give problemer senere
 df_data.columns = df_data.columns.str.strip()
 df_fuel.columns = df_fuel.columns.str.strip()
 
-
 # ind.tid har nogle gange 24:00, hvilket ikke er en gyldig tid, så det erstattes med 00:00 og tilføjer en dag
 dt = df_data["ind.tid"].astype(str).str.strip()
 dt_ud = df_data["ud.tid"].astype(str).str.strip()
 
-mask = dt.str.endswith("24:00")
+
+mask_ind = dt.str.endswith("24:00")
+mask_ud = dt_ud.str.endswith("24:00")
 
 dt_fuel = df_fuel["Transaction Date/Time"].astype(str).str.strip()
 
 dt = dt.str.replace("24:00", "00:00", regex=False)
 dt_ud = dt_ud.str.replace("24:00", "00:00", regex=False)
 
-dt = pd.to_datetime(dt, format="%d-%m-%Y %H:%M", dayfirst=True)
-dt_ud = pd.to_datetime(dt_ud, format="%d-%m-%Y %H:%M", dayfirst=True)
+dt = pd.to_datetime(dt, format="%d-%m-%Y %H:%M:%S", dayfirst=True, errors="coerce")
+dt_ud = pd.to_datetime(dt_ud, format="%d-%m-%Y %H:%M:%S", dayfirst=True, errors="coerce")
 df_fuel["Transaction Date/Time"] = pd.to_datetime(
     df_fuel["Transaction Date/Time"],
     format="%Y-%m-%d %H:%M:%S",
@@ -51,14 +56,20 @@ df_fuel["Transaction Date/Time"] = pd.to_datetime(
 #laver ny kolonne som har samme datetime format som de andre dataframes
 df_fuel["Transaction Date/Time_str"] = df_fuel["Transaction Date/Time"].dt.strftime("%d-%m-%Y %H:%M:%S")
 
-dt.loc[mask] = dt.loc[mask] + pd.Timedelta(days=1)
-dt_ud.loc[mask] = dt_ud.loc[mask] + pd.Timedelta(days=1)
+dt.loc[mask_ind] = dt.loc[mask_ind] + pd.Timedelta(days=1)
+dt_ud.loc[mask_ud] = dt_ud.loc[mask_ud] + pd.Timedelta(days=1)
+
+print("NaT i ind.tid:", dt.isna().sum())
+print("NaT i ud.tid:", dt_ud.isna().sum())
 
 #indsæter nye ind.tid og ud.tid og fjerner alle rækker hvor de er NaN
 df_data["ind.tid"] = dt
 df_data["ud.tid"] = dt_ud
+
 df_data = df_data.dropna(subset=["ind.tid"])
 df_data = df_data.dropna(subset=["ud.tid"])
+
+print(len(df_data))
 
 #Sætter ind.tid som index, da det er det der skal analyseres på først
 df_data.set_index("ind.tid", inplace=True)
@@ -68,21 +79,23 @@ df_data.set_index("ind.tid", inplace=True)
 #fjerner alle rækker som ikke er status 4 da status 4 er afsluttede udlejninger
 mask_df_data = df_data["stat"].astype(str).str.contains("4", na=False)
 df_data = df_data.loc[mask_df_data]
-
+print(len(df_data))
 
 #Finder de biler der kommer ind på gammel kongevej
 mask_gmk = df_data["st.i"].astype(str).str.fullmatch("5.0", na=False)
 df_gmk = df_data.loc[mask_gmk].copy()
+print(len(df_gmk))
+
 
 df_gmk = df_gmk.drop(columns=[
-    "kon.nr", "bilgrp", "spcgrp", "spcnr", "k/f", "st.u", "st.i", "stat", "ud.tid", "leje.dg", "oprettelse",
+    "kon.nr", "bilgrp", "spcgrp", "spcnr", "k/f", "st.u", "st.i", "stat", "leje.dg", "oprettelse",
     "udl.land", "lejer", "firmabss", "firma", "land", "mærke", "model", "km.incl", "styr.rate", "styr.ratekode",
     "rate2", "rate2-dkk", "rate3", "rate3-dkk", "rate4", "rate4-dkk", "rate5", "rate5-dkk", "rate6", "rate6-dkk",
     "rate7", "rate7-dkk", "rate8", "rate8-dkk", "rate9", "rate9-dkk", "rate10", "rate10-dkk", "extrakm-dkk", "moms",
     "forsikring", "total", "dekort", "check-out", "exp-check-in", "check-in"
 ])
 
-print("rows with fuel data before merge:", df_fuel["Volume"].notna().sum())
+#print("rows with fuel data before merge:", df_fuel["Volume"].notna().sum())
 
 # Tilføj dato-kolonner til merge (uden at ændre index)
 df_gmk["dato"] = pd.to_datetime(df_gmk.index).normalize()
@@ -109,9 +122,9 @@ df_gmk = df_gmk.reset_index().merge(
 df_gmk = df_gmk.set_index("ind.tid")
 df_gmk = df_gmk.drop(columns=["dato"])
 
-print("Dataframe for gmk with merged Volume", df_gmk)
+#print("Dataframe for gmk with merged Volume", df_gmk)
 
-print("Number of rows with fuel data:", df_fuel["Volume"].notna().sum())
+#print("Number of rows with fuel data:", df_fuel["Volume"].notna().sum())
 
 #%%
 # Laver simpelt plot af volumen fuel pr dag:
@@ -503,4 +516,68 @@ short_rentals = rental_days[rental_days <= 7].count()
 total_rentals = rental_days.count()
 print("Percentage of rentals lasting 1-7 days:", short_rentals / total_rentals * 100, "%")
 
+# %%
+#Average af indkommende biler vs udlejninger pr dag
+# Antal ankomster pr. dag (baseret på index = ind.tid)
+daily_arrivals = df_gmk.groupby(df_gmk.index.normalize()).size()
+
+#finder average af ankomster pr dag
+daily_arrivals_avg = daily_arrivals.mean()
+
+# Antal udlejninger pr. dag (baseret på ud.tid-kolonnen)
+daily_rentals = df_gmk.groupby(df_gmk["ud.tid"].dt.normalize()).size()
+
+#finder average af udlejninger pr dag
+daily_rentals_avg = daily_rentals.mean()
+
+#Farver bar i Europcars farver
+
+
+# Plot
+plt.figure(figsize=(12,6))
+plt.plot(daily_arrivals.index, daily_arrivals.values, label="Daily arrivals", color="black")
+plt.plot(daily_rentals.index, daily_rentals.values, label="Daily rentals", color="green")
+
+plt.xlabel("Date")
+plt.ylabel("Count")
+plt.title("Daily arrivals vs daily rentals")
+plt.legend()
+plt.xticks(rotation=45)
+plt.tight_layout()
+plt.show()
+
+#Dette plot gør det meget tydeligt at de næsten af præcis samme antal indkommende biler som udlejninger pr dag
+#Det er interessant ift at kunne estimere det endelige energibheov hvis det var elbiler der var tale om
+# %%
+#Nu vil jeg have det pr time i stedet for pr dag:
+
+# Antal ankomster pr. time
+hourly_arrivals = df_gmk.groupby(df_gmk.index.hour).size()
+
+# Antal udlejninger pr. time
+hourly_rentals = df_gmk.groupby(df_gmk["ud.tid"].dt.hour).size()
+
+# Sørg for at alle 24 timer er med
+hourly_arrivals = hourly_arrivals.reindex(range(24), fill_value=0)
+hourly_rentals = hourly_rentals.reindex(range(24), fill_value=0)
+
+# Plot
+plt.figure(figsize=(12,6))
+plt.plot(hourly_arrivals.index, hourly_arrivals.values, label="Hourly arrivals", color="black")
+plt.plot(hourly_rentals.index, hourly_rentals.values, label="Hourly rentals", color="green")
+
+plt.xlabel("Hour of day")
+plt.ylabel("Count")
+plt.title("Hourly arrivals vs hourly rentals")
+plt.legend()
+plt.xticks(range(24))
+plt.tight_layout()
+plt.show()
+
+# %%
+#Finder ud af de specifikke omvendningtider alle bilerne har 
+
+Omvendningstider = df_gmk.index - df_gmk["ud.tid"]
+print(len(df_gmk))
+print(len(Omvendningstider))
 # %%
