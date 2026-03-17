@@ -20,14 +20,14 @@ file_PE2 = os.path.join(os.getcwd(), 'Alle RA 2025 pr. 2026-03-11 Q3-Q4.csv')
 file_fuel = os.path.join(os.getcwd(), 'fuel gmk.csv')
 
 df_data1 = pd.read_csv(file_PE, sep=';', encoding='latin1')
-print(len(df_data1))
+#print(len(df_data1))
 
 df_data2 = pd.read_csv(file_PE2, sep=';', encoding='latin1')
 df_fuel = pd.read_csv(file_fuel, sep=',')
 
 # samler de to datasæt, så vi kigger på et helt år
 df_data = pd.concat([df_data1, df_data2], ignore_index=True)
-print(len(df_data))
+#print(df_data)
 
 # fjerner eventuelle mellemrum i kolonnenavnene, da det kan give problemer senere
 df_data.columns = df_data.columns.str.strip()
@@ -36,8 +36,7 @@ df_fuel.columns = df_fuel.columns.str.strip()
 # ind.tid har nogle gange 24:00, hvilket ikke er en gyldig tid, så det erstattes med 00:00 og tilføjer en dag
 dt = df_data["ind.tid"].astype(str).str.strip()
 dt_ud = df_data["ud.tid"].astype(str).str.strip()
-
-
+#print(dt)
 mask_ind = dt.str.endswith("24:00")
 mask_ud = dt_ud.str.endswith("24:00")
 
@@ -46,8 +45,8 @@ dt_fuel = df_fuel["Transaction Date/Time"].astype(str).str.strip()
 dt = dt.str.replace("24:00", "00:00", regex=False)
 dt_ud = dt_ud.str.replace("24:00", "00:00", regex=False)
 
-dt = pd.to_datetime(dt, format="%d-%m-%Y %H:%M:%S", dayfirst=True, errors="coerce")
-dt_ud = pd.to_datetime(dt_ud, format="%d-%m-%Y %H:%M:%S", dayfirst=True, errors="coerce")
+dt = pd.to_datetime(dt, format="%d-%m-%Y %H:%M", dayfirst=True, errors="coerce")
+dt_ud = pd.to_datetime(dt_ud, format="%d-%m-%Y %H:%M", dayfirst=True, errors="coerce")
 df_fuel["Transaction Date/Time"] = pd.to_datetime(
     df_fuel["Transaction Date/Time"],
     format="%Y-%m-%d %H:%M:%S",
@@ -69,24 +68,23 @@ df_data["ud.tid"] = dt_ud
 df_data = df_data.dropna(subset=["ind.tid"])
 df_data = df_data.dropna(subset=["ud.tid"])
 
-print(len(df_data))
+#print(df_data)
 
 #Sætter ind.tid som index, da det er det der skal analyseres på først
 df_data.set_index("ind.tid", inplace=True)
 
-#print(df_data.columns)  
+#print(df_data)  
 
 #fjerner alle rækker som ikke er status 4 da status 4 er afsluttede udlejninger
 mask_df_data = df_data["stat"].astype(str).str.contains("4", na=False)
 df_data = df_data.loc[mask_df_data]
-print(len(df_data))
-
+#print(len(df_data))
 #Finder de biler der kommer ind på gammel kongevej
 mask_gmk = df_data["st.i"].astype(str).str.fullmatch("5.0", na=False)
-df_gmk = df_data.loc[mask_gmk].copy()
-print(len(df_gmk))
+df_gmk = df_data.loc[mask_gmk]
+#print("hej", df_gmk)
 
-
+#%%
 df_gmk = df_gmk.drop(columns=[
     "kon.nr", "bilgrp", "spcgrp", "spcnr", "k/f", "st.u", "st.i", "stat", "leje.dg", "oprettelse",
     "udl.land", "lejer", "firmabss", "firma", "land", "mærke", "model", "km.incl", "styr.rate", "styr.ratekode",
@@ -111,6 +109,8 @@ fuel_per_day = (
     .sum()
 )
 
+#OBS - vi skal ikke summere alt fuel per dag vel?
+
 # Merge fuel ind i df_gmk på dato og nummerplade
 df_gmk = df_gmk.reset_index().merge(
     fuel_per_day,
@@ -122,7 +122,7 @@ df_gmk = df_gmk.reset_index().merge(
 df_gmk = df_gmk.set_index("ind.tid")
 df_gmk = df_gmk.drop(columns=["dato"])
 
-#print("Dataframe for gmk with merged Volume", df_gmk)
+print("Dataframe for gmk with merged Volume", df_gmk.head())
 
 #print("Number of rows with fuel data:", df_fuel["Volume"].notna().sum())
 
