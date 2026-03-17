@@ -64,6 +64,7 @@ df_fuel['ind.tid'] = pd.to_datetime(df_fuel.index).strftime("%d-%m-%Y %H:%M")
 
 # Create formatted string from df_data index
 df_gmk['ind.tid_str'] = df_gmk.index.strftime("%d-%m-%Y %H:%M")
+df_gmk["volumen"] = 0.0
 
 # Merge
 df_merged = pd.merge(
@@ -74,9 +75,6 @@ df_merged = pd.merge(
     how='left'
 )
 df_merged = df_merged.drop(columns=["mærke","k/f" ,"ud.tid", "leje.dg","km", "extrakm", "kon.nr", "spcgrp", "spcnr", "st.u", "oprettelse", "udl.land", "lejer", "firmabss", "land", "firma", "model", "km.incl", "extrakm-dkk", "forsikring", "dekort", "exp-check-in", "check-in", "check-out", "moms", "total"])
-
-print(df_merged["Volume"])
-print(df_merged["Volume"].notna().value_counts())
 
 
 
