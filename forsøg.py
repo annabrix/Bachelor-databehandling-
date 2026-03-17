@@ -84,7 +84,7 @@ mask_gmk = df_data["st.i"].astype(str).str.fullmatch("5.0", na=False)
 df_gmk = df_data.loc[mask_gmk]
 #print("hej", df_gmk)
 
-#%%
+
 df_gmk = df_gmk.drop(columns=[
     "kon.nr", "bilgrp", "spcgrp", "spcnr", "k/f", "st.u", "st.i", "stat", "leje.dg", "oprettelse",
     "udl.land", "lejer", "firmabss", "firma", "land", "mærke", "model", "km.incl", "styr.rate", "styr.ratekode",
@@ -135,7 +135,7 @@ volume_per_day = df_gmk["Volume"].groupby(df_gmk.index.normalize()).sum()
 plt.figure(figsize=(12,6))
 plt.plot(volume_per_day.index, volume_per_day.values)
 plt.xlabel("Dato")
-plt.ylabel("Samlet volumen")
+plt.ylabel("Samlet volumen i liter")
 plt.title("Samlet fuel volume pr. dag")
 plt.xticks(rotation=45)
 plt.tight_layout()
