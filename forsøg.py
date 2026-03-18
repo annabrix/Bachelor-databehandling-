@@ -86,14 +86,12 @@ df_gmk = df_data.loc[mask_gmk]
 
 
 df_gmk = df_gmk.drop(columns=[
-    "kon.nr", "spcgrp", "spcnr", "k/f", "stat", "leje.dg", "oprettelse",
+    "kon.nr", "spcgrp", "spcnr", "k/f", "st.u", "st.i", "stat", "leje.dg", "oprettelse",
     "udl.land", "lejer", "firmabss", "firma", "land", "mærke", "model", "km.incl", "styr.rate", "styr.ratekode",
     "rate2", "rate2-dkk", "rate3", "rate3-dkk", "rate4", "rate4-dkk", "rate5", "rate5-dkk", "rate6", "rate6-dkk",
     "rate7", "rate7-dkk", "rate8", "rate8-dkk", "rate9", "rate9-dkk", "rate10", "rate10-dkk", "extrakm-dkk", "moms",
     "forsikring", "total", "dekort", "check-out", "exp-check-in", "check-in"
 ])
-
-#print("rows with fuel data before merge:", df_fuel["Volume"].notna().sum())
 
 # Tilføj dato-kolonner til merge (uden at ændre index)
 df_gmk["dato"] = pd.to_datetime(df_gmk.index).normalize()
@@ -247,7 +245,7 @@ df_939 = df_EV.loc[mask_939]
 
 df_notfull = pd.concat([df_932_notfull, df_939])
 df_notfull = df_notfull.sort_index()
-print("rate 939+935", df_notfull) #her er 309 rækker
+print("rate 939+935", df_notfull, df_939) #her er 309 rækker
 
 
 #print("gmk", df_gmk)
@@ -314,7 +312,7 @@ plt.ylabel("Number of arrivals")
 plt.title("Distribution of car arrivals by day of week")
 plt.show()
 
-#%% Bilers ankomst fordelt på dagene for hver time
+#%% Bilers ankomst fordelt på dagene for hver time i gennemsnit
 # lav kolonner for time og ugedag
 df_gmk["hour"] = df_gmk.index.hour
 df_gmk["day"] = df_gmk.index.dayofweek
@@ -600,7 +598,7 @@ plt.show()
 # %%
 #Nu vil jeg have det pr time i stedet for pr dag:
 
-# Antal ankomster pr. time
+# Extracter timerne hen ad dagen
 hourly_arrivals = df_gmk.groupby(df_gmk.index.hour).size()
 
 # Antal udlejninger pr. time
@@ -629,4 +627,72 @@ plt.show()
 Omvendningstider = df_gmk.index - df_gmk["ud.tid"]
 print(len(df_gmk))
 print(len(Omvendningstider))
+
+# %%
+# lav kolonner for time og ugedag
+df_gmk["hour"] = df_gmk.index.hour
+df_gmk["day"] = df_gmk.index.dayofweek
+
+# Tæller antal ankomster
+hour_day_counts = df_gmk.groupby(["day", "hour"]).size().unstack(fill_value=0)
+
+# sørg for alle timer er med
+hour_day_counts = hour_day_counts.reindex(columns=range(24), fill_value=0)
+
+# Finder antal unikke dage per ugedag
+days_count = df_gmk.groupby("day").apply(lambda x: x.index.normalize().nunique())
+
+# Dividere for at finde → gennemsnit pr dag (pr time)
+hour_day_avg = hour_day_counts.div(days_count, axis=0)
+
+# giver dagene navne
+days = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
+hour_day_avg.index = days
+
+# transponere så timer bliver x-akse
+plot_data = hour_day_avg.T
+
+# plot
+plt.figure(figsize=(14,6))
+plot_data.plot(kind="bar", width=0.8)
+
+plt.xlabel("Hour of day")
+plt.ylabel("Average number of arrivals")
+plt.title("Average car arrivals by hour and day of week")
+plt.legend(title="Day of week")
+plt.xticks(rotation=0)
+
+plt.tight_layout()
+plt.show()
+# %%
+# lav kolonne for time
+df_gmk["hour"] = df_gmk.index.hour
+
+# Tæller ankomster per bilgruppe og time
+hour_group_counts = df_gmk.groupby(["bilgrp", "hour"]).size().unstack(fill_value=0)
+
+# sørg for alle timer er med
+hour_group_counts = hour_group_counts.reindex(columns=range(24), fill_value=0)
+
+# Antal unikke dage i hele datasættet
+n_days = df_gmk.index.normalize().nunique()
+
+# Gennemsnit pr dag
+hour_group_avg = hour_group_counts / n_days
+
+# Transponér → timer på x-akse
+plot_data = hour_group_avg.T
+
+# plot
+plt.figure(figsize=(14,6))
+plot_data.plot(kind="bar", width=0.8)
+
+plt.xlabel("Hour of day")
+plt.ylabel("Average number of arrivals per day")
+plt.title("Average car arrivals by hour and vehicle group")
+plt.legend(title="Vehicle group")
+plt.xticks(rotation=0)
+
+plt.tight_layout()
+plt.show()
 # %%
