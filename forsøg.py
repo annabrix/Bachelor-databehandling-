@@ -27,7 +27,7 @@ df_fuel = pd.read_csv(file_fuel, sep=',')
 
 # samler de to datasæt, så vi kigger på et helt år
 df_data = pd.concat([df_data1, df_data2], ignore_index=True)
-#print(df_data)
+print(len(df_data))
 
 # fjerner eventuelle mellemrum i kolonnenavnene, da det kan give problemer senere
 df_data.columns = df_data.columns.str.strip()
@@ -68,7 +68,7 @@ df_data["ud.tid"] = dt_ud
 df_data = df_data.dropna(subset=["ind.tid"])
 df_data = df_data.dropna(subset=["ud.tid"])
 
-#print(df_data)
+print(len(df_data))
 
 #Sætter ind.tid som index, da det er det der skal analyseres på først
 df_data.set_index("ind.tid", inplace=True)
@@ -125,6 +125,14 @@ df_gmk = df_gmk.drop(columns=["dato"])
 print("Dataframe for gmk with merged Volume", df_gmk.head())
 
 #print("Number of rows with fuel data:", df_fuel["Volume"].notna().sum())
+
+
+#%% Kapacitet af grupperne
+df_data["km_L"] = 0
+# mask_df_data_km_L = df_data["bilgrp"].astype(str).str.contains("4", na=False)
+# df_data = df_data.loc[mask_df_data]
+
+
 
 #%%
 # Laver simpelt plot af volumen fuel pr dag:
@@ -199,7 +207,6 @@ df_notfull = pd.concat([df_932_notfull, df_939])
 df_notfull = df_notfull.sort_index()
 print("rate 939+935", df_notfull) #her er 309 rækker
 
-#comment
 
 #print("gmk", df_gmk)
 
