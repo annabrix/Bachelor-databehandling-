@@ -128,9 +128,15 @@ print("Dataframe for gmk with merged Volume", df_gmk.head())
 #%% Kapacitet af grupperne
 
 
-df_gmk["en_consumption"] = 0
+df_gmk["en_consumption"] = np.nan
 # mask_df_data_km_L = df_data["bilgrp"].astype(str).str.contains("4", na=False)
 # df_data = df_data.loc[mask_df_data]
+
+
+bilgrp = df_gmk["bilgrp"].fillna("").astype(str)
+første = bilgrp.str[0]
+andet = bilgrp.str[1:2]
+
 
 km_map = {
     "O": 20.5,
@@ -158,21 +164,63 @@ km_kWh_map = {
     "DE": 6.15,
     "EE": 6.2,
     "HE": 6.4,
+    "IE": 6.4,
     "LE": 6.167,
     "FE": 6.167,
     "GE": 6.167,
+    "XE": 6.167,
     "ME": 5.9,
     "JE": 4.85,
 }
 
-for bogstav, værdi in km_map.items():
-    mask = (
-        df_gmk["bilgrp"].fillna("").str.startswith(bogstav) &
-        ~df_gmk["bilgrp"].fillna("").str[1:2].eq("E")
-    )
-    df_gmk.loc[mask, "en_consumption"] = værdi
+# for bogstav, værdi in km_map.items():
+#     mask = (
+#         df_gmk["bilgrp"].fillna("").str.startswith(bogstav) &
+#         ~df_gmk["bilgrp"].fillna("").str[1:2].eq("E")
+#     )
+#     df_gmk.loc[mask, "en_consumption"] = værdi
 
-print("Dataframe with en_consumption", df_gmk)
+
+mask = første.isin(km_map) & ~andet.eq("E")
+
+df_gmk.loc[mask, "en_consumption"] = (
+    df_gmk.loc[mask, "Volume"]
+    * første.map(km_map)[mask]
+    / (første + "E").map(km_kWh_map)[mask]
+)
+
+#print("Dataframe with en_consumption", df_gmk)
+#print(df_gmk.index.min(), df_gmk.index.max())
+print(df_gmk[["bilgrp","Volume", "en_consumption"]].dropna())
+print(df_gmk["en_consumption"].notna().sum())
+print(df_gmk["Volume"].notna().sum())
+
+df_problem = df_gmk[
+    df_gmk["Volume"].notna() & df_gmk["en_consumption"].isna()
+]
+
+print(df_problem[["bilgrp", "Volume", "en_consumption"]])
+print(
+    df_problem[["bilgrp", "Volume"]]
+    .value_counts()
+    .head(20)
+)
+
+
+#%%
+df_gmk = df_gmk[df_gmk.index <= "2025-12-31"]
+consumption_per_day = df_gmk["en_consumption"].groupby(df_gmk.index.normalize()).sum()
+
+# Plot
+plt.figure(figsize=(12,6))
+plt.plot(consumption_per_day.index, consumption_per_day.values)
+plt.xlabel("Dato")
+plt.ylabel("Samlet energiforbrug i kWh")
+plt.title("Samlet energiforbrug pr. dag")
+plt.xticks(rotation=45)
+plt.tight_layout()
+plt.show()
+
 
 #%%
 # Laver simpelt plot af volumen fuel pr dag:
