@@ -86,7 +86,7 @@ df_gmk = df_data.loc[mask_gmk]
 
 
 df_gmk = df_gmk.drop(columns=[
-    "kon.nr", "bilgrp", "spcgrp", "spcnr", "k/f", "st.u", "st.i", "stat", "leje.dg", "oprettelse",
+    "kon.nr", "spcgrp", "spcnr", "k/f", "stat", "leje.dg", "oprettelse",
     "udl.land", "lejer", "firmabss", "firma", "land", "mærke", "model", "km.incl", "styr.rate", "styr.ratekode",
     "rate2", "rate2-dkk", "rate3", "rate3-dkk", "rate4", "rate4-dkk", "rate5", "rate5-dkk", "rate6", "rate6-dkk",
     "rate7", "rate7-dkk", "rate8", "rate8-dkk", "rate9", "rate9-dkk", "rate10", "rate10-dkk", "extrakm-dkk", "moms",
@@ -128,11 +128,53 @@ print("Dataframe for gmk with merged Volume", df_gmk.head())
 
 
 #%% Kapacitet af grupperne
-df_data["km_L"] = 0
+
+
+df_gmk["en_consumption"] = 0
 # mask_df_data_km_L = df_data["bilgrp"].astype(str).str.contains("4", na=False)
 # df_data = df_data.loc[mask_df_data]
 
+km_map = {
+    "O": 20.5,
+    "A": 19.0,
+    "B": 17.75,
+    "C": 17.0,
+    "D": 16.5,
+    "E": 16.25,
+    "F": 18.5,
+    "X": 17.25,
+    "G": 17.33,
+    "H": 15.5,
+    "L": 14.0,
+    "M": 13.5,
+    "I": 16.0,
+    "J": 12.5,
 
+}
+
+km_kWh_map = {
+    "OE": 6.5,
+    "AE": 7.1,
+    "BE": 6.7,
+    "CE": 6.43,
+    "DE": 6.15,
+    "EE": 6.2,
+    "HE": 6.4,
+    "LE": 6.167,
+    "FE": 6.167,
+    "GE": 6.167,
+    "ME": 5.9,
+    "JE": 4.85,
+}
+
+for bogstav, værdi in km_map.items():
+    mask = (
+        df_gmk["bilgrp"].fillna("").str.startswith(bogstav) &
+        ~df_gmk["bilgrp"].fillna("").str[1:2].eq("E")
+    )
+    df_gmk.loc[mask, "en_consumption"] = værdi
+
+print("Dataframe with en_consumption", df_gmk)
 
 #%%
 # Laver simpelt plot af volumen fuel pr dag:
