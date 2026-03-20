@@ -94,7 +94,7 @@ Columns_todrop =[
 ]
 df_gmk = df_gmk.drop(columns=Columns_todrop)
 
-# We only keep the rows where these specific cargroups ['SFAR', 'SWAR'] are NOT in the list
+# We only keep the rows where these specific cargroups ['SFAR', 'SWAR', 'GWAR','CCAR', 'CDMR'] are NOT in the list
 df_gmk = df_gmk[~df_gmk['bilgrp'].isin(['SFAR', 'SWAR', 'GWAR','CCAR', 'CDMR'])]
 
 # Adding date-columns for merge (without changing the index)
@@ -752,8 +752,48 @@ plt.xticks(rotation=0)
 
 plt.tight_layout()
 plt.show()
+
+#%%
+
+print(df_gmk["bilgrp"].dropna().astype(str).head(50).tolist())
+#%%
+#Samler grupperne
+df_gmk["bilgrp_original"] = df_gmk["bilgrp"]
+
+bevar_prefix = {"AE", "BE", "CE", "DE", "EE", "HE", "IE", "LE", "FE", "GE", "XE", "ME", "JE", "VE", "1E", "3E", "4E"}
+
+def saml_gruppe(x):
+    if pd.isna(x):
+        return x
+    
+    x = str(x).strip().upper()
+    if not x:
+        return x
+    
+    if len(x) >= 2 and x[:2] in bevar_prefix:
+        return x
+    
+    return x[0]
+
+# ny kolonne, ikke overskriv originalen
+df_gmk["bilgrp_samlet"] = df_gmk["bilgrp_original"].apply(saml_gruppe)
+
+print(df_gmk[["bilgrp_original", "bilgrp_samlet"]])
+
+counts = (
+    df_gmk["bilgrp_original"]
+    .astype(str)
+    .str.strip()
+    .str.upper()
+    .str[:2]
+    .value_counts()
+)
+
+print(counts[counts.index.isin(bevar_prefix)])
+
 #%%
 # Average fuel volume pr. time pr. dag opdelt på bilgruppe
+
 
 # lav kolonne for time
 df_gmk["hour"] = df_gmk.index.hour
@@ -762,7 +802,7 @@ df_gmk["hour"] = df_gmk.index.hour
 df_gmk["Volume"] = pd.to_numeric(df_gmk["Volume"], errors="coerce")
 
 # summer volume per bilgruppe og time
-hour_group_volume = df_gmk.groupby(["bilgrp", "hour"])["Volume"].sum().unstack(fill_value=0)
+hour_group_volume = df_gmk.groupby(["bilgrp_samlet", "hour"])["Volume"].sum().unstack(fill_value=0)
 
 # sørg for alle timer er med
 hour_group_volume = hour_group_volume.reindex(columns=range(24), fill_value=0)
