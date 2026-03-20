@@ -17,7 +17,7 @@ import pandas as pd
 #indlæser csv filerne og sætter ind.tid som index, da det er det der skal analyseres på
 file_PE = os.path.join(os.getcwd(), 'Alle RA 2025 pr. 2026-03-11 Q1-Q2.csv')
 file_PE2 = os.path.join(os.getcwd(), 'Alle RA 2025 pr. 2026-03-11 Q3-Q4.csv')
-file_fuel = os.path.join(os.getcwd(), 'fuel gmk.csv')
+file_fuel = os.path.join(os.getcwd(), 'card_transactions_nu.csv')
 
 df_data1 = pd.read_csv(file_PE, sep=';', encoding='latin1')
 #print(len(df_data1))
@@ -27,7 +27,7 @@ df_fuel = pd.read_csv(file_fuel, sep=',')
 
 # samler de to datasæt, så vi kigger på et helt år
 df_data = pd.concat([df_data1, df_data2], ignore_index=True)
-print(len(df_data))
+#print(len(df_data))
 
 # fjerner eventuelle mellemrum i kolonnenavnene, da det kan give problemer senere
 df_data.columns = df_data.columns.str.strip()
@@ -58,8 +58,8 @@ df_fuel["Transaction Date/Time_str"] = df_fuel["Transaction Date/Time"].dt.strft
 dt.loc[mask_ind] = dt.loc[mask_ind] + pd.Timedelta(days=1)
 dt_ud.loc[mask_ud] = dt_ud.loc[mask_ud] + pd.Timedelta(days=1)
 
-print("NaT i ind.tid:", dt.isna().sum())
-print("NaT i ud.tid:", dt_ud.isna().sum())
+#print("NaT i ind.tid:", dt.isna().sum())
+#print("NaT i ud.tid:", dt_ud.isna().sum())
 
 #indsæter nye ind.tid og ud.tid og fjerner alle rækker hvor de er NaN
 df_data["ind.tid"] = dt
@@ -68,7 +68,7 @@ df_data["ud.tid"] = dt_ud
 df_data = df_data.dropna(subset=["ind.tid"])
 df_data = df_data.dropna(subset=["ud.tid"])
 
-print(len(df_data))
+#print(len(df_data))
 
 #Sætter ind.tid som index, da det er det der skal analyseres på først
 df_data.set_index("ind.tid", inplace=True)
@@ -90,7 +90,7 @@ Columns_todrop =[
     "udl.land", "lejer", "firmabss", "firma", "land", "mærke", "model", "km.incl", "styr.rate", "styr.ratekode",
     "rate2", "rate2-dkk", "rate3", "rate3-dkk", "rate4", "rate4-dkk", "rate5", "rate5-dkk", "rate6", "rate6-dkk",
     "rate7", "rate7-dkk", "rate8", "rate8-dkk", "rate9", "rate9-dkk", "rate10", "rate10-dkk", "extrakm-dkk", "moms",
-    "forsikring", "total", "dekort", "check-out", "exp-check-in", "check-in"
+    "forsikring", "total", "dekort", "check-out", "exp-check-in", "check-in", "km"  , 
 ]
 df_gmk = df_gmk.drop(columns=Columns_todrop)
 
@@ -101,34 +101,378 @@ df_gmk = df_gmk[~df_gmk['bilgrp'].isin(['SFAR', 'SWAR', 'GWAR','CCAR', 'CDMR'])]
 df_gmk["dato"] = pd.to_datetime(df_gmk.index).normalize()
 df_fuel["dato"] = pd.to_datetime(df_fuel["Transaction Date/Time_str"]).dt.normalize()
 
-# Ensret nummerplader
-df_gmk["nummerplade"] = df_gmk["reg.nr"].astype(str).str.replace(" ", "").str.strip().str.upper()
-df_fuel["nummerplade"] = df_fuel["Vehicle Number"].astype(str).str.strip().str.upper()
+# Gør index til kolonne
+df_gmk = df_gmk.reset_index()
 
-# Summer Volume pr. dag pr. nummerplade i df_fuel
-fuel_per_day = (
-    df_fuel.groupby(["dato", "nummerplade"], as_index=False)["Volume"]
-    .sum()
+
+# Sørg for datetime
+df_gmk["ud.tid"] = pd.to_datetime(df_gmk["ud.tid"], errors="coerce")
+df_fuel["Transaction Date/Time"] = pd.to_datetime(df_fuel["Transaction Date/Time"], errors="coerce")
+
+# -----------------------------
+# Rens nummerplader
+# -----------------------------
+def clean_plate(s):
+    if pd.isna(s):
+        return pd.NA
+    s = "".join(ch for ch in str(s).upper().strip().replace(" ", "").replace("-", "") if ch.isalnum())
+    return s if s else pd.NA
+
+def looks_like_plate(s):
+    return pd.notna(s) and len(s) >= 5 and any(c.isalpha() for c in str(s)) and any(c.isdigit() for c in str(s))
+
+df_gmk = df_gmk.copy()
+df_fuel = df_fuel.copy()
+
+df_gmk["nummerplade"] = df_gmk["reg.nr"].apply(clean_plate)
+df_fuel["nummerplade"] = df_fuel["Vehicle Number"].apply(clean_plate)
+
+# Behold kun realistiske nummerplader
+df_gmk = df_gmk[df_gmk["nummerplade"].apply(looks_like_plate)].copy()
+df_fuel = df_fuel[df_fuel["nummerplade"].apply(looks_like_plate)].copy()
+
+# -----------------------------
+# Klargør data til matching
+# -----------------------------
+df_gmk_match = (
+    df_gmk.reset_index()
+    .dropna(subset=["ud.tid", "nummerplade"])
+    .sort_values("ud.tid")
+    .copy()
 )
 
-#OBS - vi skal ikke summere alt fuel per dag vel?
-
-# Merge fuel ind i df_gmk på dato og nummerplade
-df_gmk = df_gmk.reset_index().merge(
-    fuel_per_day,
-    on=["dato", "nummerplade"],
-    how="left"
+df_fuel_match = (
+    df_fuel.dropna(subset=["Transaction Date/Time", "nummerplade", "Volume"])
+    .sort_values("Transaction Date/Time")
+    .copy()
 )
 
-# Sæt ind.tid tilbage som index og fjern hjælpekolonnen 'dato' hvis ønsket
-df_gmk = df_gmk.set_index("ind.tid")
-df_gmk = df_gmk.drop(columns=["dato"])
+# -----------------------------
+# Match nærmeste tankning til ind.tid inden for 12 timer
+# -----------------------------
+df_merged = pd.merge_asof(
+    df_gmk_match,
+    df_fuel_match[["Transaction Date/Time", "nummerplade", "Volume"]].sort_values("Transaction Date/Time"),
+    left_on="ud.tid",
+    right_on="Transaction Date/Time",
+    by="nummerplade",
+    direction="nearest",   # skift til "forward" hvis tankning kun må ske efter ind.tid
+    tolerance=pd.Timedelta("12h")
+)
 
-print("Dataframe for gmk with merged Volume", df_gmk.head())
+df_merged["timediff_timer"] = (
+    (df_merged["Transaction Date/Time"] - df_merged["ud.tid"])
+    .abs()
+    .dt.total_seconds()
+    / 3600
+)
 
-#print("Number of rows with fuel data:", df_fuel["Volume"].notna().sum())
+df_gmk = df_merged.set_index("ud.tid").copy()
+
+# -----------------------------
+# Debug / kontrol
+# -----------------------------
+print("Antal rækker med matched Volume:", df_gmk["Volume"].notna().sum())
+
+print(
+    df_gmk.loc[
+        df_gmk["Volume"].notna(),
+        ["nummerplade", "Transaction Date/Time", "Volume", "timediff_timer"]
+    ].head(20)
+)
+
+# -----------------------------
+# Overlap i nummerplader
+# -----------------------------
+plates_gmk = set(df_gmk["nummerplade"].dropna().unique())
+plates_fuel = set(df_fuel["nummerplade"].dropna().unique())
+
+print("Nummerplader i GMK:", len(plates_gmk))
+print("Nummerplader i fuel:", len(plates_fuel))
+print("Fælles nummerplader:", len(plates_gmk & plates_fuel))
+print("Kun i fuel:", len(plates_fuel - plates_gmk))
+print("Kun i GMK:", len(plates_gmk - plates_fuel))
+
+print("Eksempler kun i fuel:", sorted(plates_fuel - plates_gmk)[:50])
+print("Eksempler kun i GMK:", sorted(plates_gmk - plates_fuel)[:50])
+
+# -----------------------------
+# Hvor mange fuel-rækker finder et match? (12 timer)
+# -----------------------------
+gmk_check = (
+    df_gmk.reset_index()[["ud.tid", "nummerplade"]]
+    .dropna()
+    .sort_values("ud.tid")
+    .copy()
+)
+
+fuel_check = (
+    df_fuel[["Transaction Date/Time", "nummerplade", "Volume"]]
+    .dropna()
+    .sort_values("Transaction Date/Time")
+    .copy()
+)
+
+fuel_to_gmk_12h = pd.merge_asof(
+    fuel_check,
+    gmk_check,
+    left_on="Transaction Date/Time",
+    right_on="ud.tid",
+    by="nummerplade",
+    direction="nearest",
+    tolerance=pd.Timedelta("12h")
+)
+
+print("Fuel-rækker i alt:", len(fuel_to_gmk_12h))
+print("Fuel-rækker med match (12t):", fuel_to_gmk_12h["ud.tid"].notna().sum())
+print("Fuel-rækker uden match (12t):", fuel_to_gmk_12h["ud.tid"].isna().sum())
+
+# -----------------------------
+# Samme test med 24 timer
+# -----------------------------
+fuel_to_gmk_24h = pd.merge_asof(
+    fuel_check,
+    gmk_check,
+    left_on="Transaction Date/Time",
+    right_on="ud.tid",
+    by="nummerplade",
+    direction="nearest",
+    tolerance=pd.Timedelta("79h")
+)
+
+print("Fuel-rækker med match (24t):", fuel_to_gmk_24h["ud.tid"].notna().sum())
+print("Fuel-rækker uden match (24t):", fuel_to_gmk_24h["ud.tid"].isna().sum())
+
+# -----------------------------
+# Test uden tidsgrænse
+# -----------------------------
+fuel_to_gmk_no_limit = pd.merge_asof(
+    fuel_check,
+    gmk_check,
+    left_on="Transaction Date/Time",
+    right_on="ud.tid",
+    by="nummerplade",
+    direction="nearest"
+)
+
+fuel_to_gmk_no_limit["timediff_timer"] = (
+    (fuel_to_gmk_no_limit["Transaction Date/Time"] - fuel_to_gmk_no_limit["ud.tid"])
+    .abs()
+    .dt.total_seconds()
+    / 3600
+)
+
+print(fuel_to_gmk_no_limit["timediff_timer"].describe())
+
+unmatched = fuel_to_gmk_no_limit[fuel_to_gmk_no_limit["ud.tid"].isna()]
+print("Uden match uden tidsgrænse:", len(unmatched))
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+# # Sørg for datetime
+# df_gmk["ud.tid"] = pd.to_datetime(df_gmk["ud.tid"], errors="coerce")
+# df_fuel["Transaction Date/Time"] = pd.to_datetime(df_fuel["Transaction Date/Time"], errors="coerce")
+
+# # -----------------------------
+# # Rens nummerplader
+# # -----------------------------
+# def clean_plate(s):
+#     if pd.isna(s):
+#         return pd.NA
+#     s = "".join(ch for ch in str(s).upper().strip().replace(" ", "").replace("-", "") if ch.isalnum())
+#     return s if s else pd.NA
+
+# def looks_like_plate(s):
+#     return pd.notna(s) and len(s) >= 5 and any(c.isalpha() for c in str(s)) and any(c.isdigit() for c in str(s))
+
+# df_gmk = df_gmk.copy()
+# df_fuel = df_fuel.copy()
+
+# df_gmk["nummerplade"] = df_gmk["reg.nr"].apply(clean_plate)
+# df_fuel["nummerplade"] = df_fuel["Vehicle Number"].apply(clean_plate)
+
+# # Behold kun realistiske nummerplader
+# df_gmk = df_gmk[df_gmk["nummerplade"].apply(looks_like_plate)].copy()
+# df_fuel = df_fuel[df_fuel["nummerplade"].apply(looks_like_plate)].copy()
+
+# # -----------------------------
+# # Klargør data til matching
+# # -----------------------------
+# df_gmk_match = (
+#     df_gmk.reset_index()
+#     .dropna(subset=["ind.tid", "nummerplade"])
+#     .sort_values("ind.tid")
+#     .copy()
+# )
+
+# df_fuel_match = (
+#     df_fuel.dropna(subset=["Transaction Date/Time", "nummerplade", "Volume"])
+#     .sort_values("Transaction Date/Time")
+#     .copy()
+# )
+
+# # -----------------------------
+# # Match nærmeste tankning til ind.tid inden for 12 timer
+# # -----------------------------
+# df_merged = pd.merge_asof(
+#     df_gmk_match,
+#     df_fuel_match[["Transaction Date/Time", "nummerplade", "Volume"]].sort_values("Transaction Date/Time"),
+#     left_on="ind.tid",
+#     right_on="Transaction Date/Time",
+#     by="nummerplade",
+#     direction="nearest",   # skift til "forward" hvis tankning kun må ske efter ind.tid
+#     tolerance=pd.Timedelta("12h")
+# )
+
+# df_merged["timediff_timer"] = (
+#     (df_merged["Transaction Date/Time"] - df_merged["ind.tid"])
+#     .abs()
+#     .dt.total_seconds()
+#     / 3600
+# )
+
+# df_gmk = df_merged.set_index("ind.tid").copy()
+
+# # -----------------------------
+# # Debug / kontrol
+# # -----------------------------
+# print("Antal rækker med matched Volume:", df_gmk["Volume"].notna().sum())
+
+# print(
+#     df_gmk.loc[
+#         df_gmk["Volume"].notna(),
+#         ["nummerplade", "Transaction Date/Time", "Volume", "timediff_timer"]
+#     ].head(20)
+# )
+
+# # -----------------------------
+# # Overlap i nummerplader
+# # -----------------------------
+# plates_gmk = set(df_gmk["nummerplade"].dropna().unique())
+# plates_fuel = set(df_fuel["nummerplade"].dropna().unique())
+
+# print("Nummerplader i GMK:", len(plates_gmk))
+# print("Nummerplader i fuel:", len(plates_fuel))
+# print("Fælles nummerplader:", len(plates_gmk & plates_fuel))
+# print("Kun i fuel:", len(plates_fuel - plates_gmk))
+# print("Kun i GMK:", len(plates_gmk - plates_fuel))
+
+# print("Eksempler kun i fuel:", sorted(plates_fuel - plates_gmk)[:50])
+# print("Eksempler kun i GMK:", sorted(plates_gmk - plates_fuel)[:50])
+
+# # -----------------------------
+# # Hvor mange fuel-rækker finder et match? (12 timer)
+# # -----------------------------
+# gmk_check = (
+#     df_gmk.reset_index()[["ind.tid", "nummerplade"]]
+#     .dropna()
+#     .sort_values("ind.tid")
+#     .copy()
+# )
+
+# fuel_check = (
+#     df_fuel[["Transaction Date/Time", "nummerplade", "Volume"]]
+#     .dropna()
+#     .sort_values("Transaction Date/Time")
+#     .copy()
+# )
+
+# fuel_to_gmk_12h = pd.merge_asof(
+#     fuel_check,
+#     gmk_check,
+#     left_on="Transaction Date/Time",
+#     right_on="ind.tid",
+#     by="nummerplade",
+#     direction="nearest",
+#     tolerance=pd.Timedelta("12h")
+# )
+
+# print("Fuel-rækker i alt:", len(fuel_to_gmk_12h))
+# print("Fuel-rækker med match (12t):", fuel_to_gmk_12h["ind.tid"].notna().sum())
+# print("Fuel-rækker uden match (12t):", fuel_to_gmk_12h["ind.tid"].isna().sum())
+
+# # -----------------------------
+# # Samme test med 24 timer
+# # -----------------------------
+# fuel_to_gmk_24h = pd.merge_asof(
+#     fuel_check,
+#     gmk_check,
+#     left_on="Transaction Date/Time",
+#     right_on="ind.tid",
+#     by="nummerplade",
+#     direction="nearest",
+#     tolerance=pd.Timedelta("79h")
+# )
+
+# print("Fuel-rækker med match (24t):", fuel_to_gmk_24h["ind.tid"].notna().sum())
+# print("Fuel-rækker uden match (24t):", fuel_to_gmk_24h["ind.tid"].isna().sum())
+
+# # -----------------------------
+# # Test uden tidsgrænse
+# # -----------------------------
+# fuel_to_gmk_no_limit = pd.merge_asof(
+#     fuel_check,
+#     gmk_check,
+#     left_on="Transaction Date/Time",
+#     right_on="ind.tid",
+#     by="nummerplade",
+#     direction="nearest"
+# )
+
+# fuel_to_gmk_no_limit["timediff_timer"] = (
+#     (fuel_to_gmk_no_limit["Transaction Date/Time"] - fuel_to_gmk_no_limit["ind.tid"])
+#     .abs()
+#     .dt.total_seconds()
+#     / 3600
+# )
+
+# print(fuel_to_gmk_no_limit["timediff_timer"].describe())
+
+# unmatched = fuel_to_gmk_no_limit[fuel_to_gmk_no_limit["ind.tid"].isna()]
+# print("Uden match uden tidsgrænse:", len(unmatched))
 #%% Kapacitet af grupperne
 
 
@@ -232,6 +576,7 @@ plt.show()
 # Laver simpelt plot af volumen fuel pr dag:
 # Summer samlet volume pr. dag
 volume_per_day = df_gmk["Volume"].groupby(df_gmk.index.normalize()).sum()
+
 
 # Plot
 plt.figure(figsize=(12,6))
