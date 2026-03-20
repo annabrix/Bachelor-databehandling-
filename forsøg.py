@@ -153,6 +153,10 @@ km_map = {
     "M": 13.5,
     "I": 16.0,
     "J": 12.5,
+    "V": 12.5,
+    "1": 16.475,
+    "3": 17.5,
+    "4": 13.0,
 
 }
 
@@ -171,15 +175,13 @@ km_kWh_map = {
     "XE": 6.167,
     "ME": 5.9,
     "JE": 4.85,
+    "VE": 3.1,
+    "1E": 5.65,
+    "3E": 3.75,
+    "4E": 3.1,
 }
 
-# for bogstav, værdi in km_map.items():
-#     mask = (
-#         df_gmk["bilgrp"].fillna("").str.startswith(bogstav) &
-#         ~df_gmk["bilgrp"].fillna("").str[1:2].eq("E")
-#     )
-#     df_gmk.loc[mask, "en_consumption"] = værdi
-
+#tag lige stilling til 2 og 7
 
 mask = første.isin(km_map) & ~andet.eq("E")
 
@@ -195,16 +197,16 @@ print(df_gmk[["bilgrp","Volume", "en_consumption"]].dropna())
 print(df_gmk["en_consumption"].notna().sum())
 print(df_gmk["Volume"].notna().sum())
 
-df_problem = df_gmk[
-    df_gmk["Volume"].notna() & df_gmk["en_consumption"].isna()
-]
+# df_problem = df_gmk[
+#     df_gmk["Volume"].notna() & df_gmk["en_consumption"].isna()
+# ]
 
-print(df_problem[["bilgrp", "Volume", "en_consumption"]])
-print(
-    df_problem[["bilgrp", "Volume"]]
-    .value_counts()
-    .head(20)
-)
+# print(df_problem[["bilgrp", "Volume", "en_consumption"]])
+# print(
+#     df_problem[["bilgrp", "Volume"]]
+#     .value_counts()
+#     .head(20)
+# )
 
 
 #%%
