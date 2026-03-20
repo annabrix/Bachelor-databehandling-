@@ -97,6 +97,7 @@ df_gmk = df_gmk.drop(columns=Columns_todrop)
 # We only keep the rows where these specific cargroups ['SFAR', 'SWAR', 'GWAR','CCAR', 'CDMR'] are NOT in the list
 df_gmk = df_gmk[~df_gmk['bilgrp'].isin(['SFAR', 'SWAR', 'GWAR','CCAR', 'CDMR'])]
 
+
 # Adding date-columns for merge (without changing the index)
 df_gmk["dato"] = pd.to_datetime(df_gmk.index).normalize()
 df_fuel["dato"] = pd.to_datetime(df_fuel["Transaction Date/Time_str"]).dt.normalize()
