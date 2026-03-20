@@ -84,16 +84,20 @@ mask_gmk = df_data["st.i"].astype(str).str.fullmatch("5.0", na=False)
 df_gmk = df_data.loc[mask_gmk]
 #print("hej", df_gmk)
 
-
-df_gmk = df_gmk.drop(columns=[
+#Here we create a variabel for all columns to drop and then drop them from the dataset
+Columns_todrop =[
     "kon.nr", "spcgrp", "spcnr", "k/f", "st.u", "st.i", "stat", "leje.dg", "oprettelse",
     "udl.land", "lejer", "firmabss", "firma", "land", "mærke", "model", "km.incl", "styr.rate", "styr.ratekode",
     "rate2", "rate2-dkk", "rate3", "rate3-dkk", "rate4", "rate4-dkk", "rate5", "rate5-dkk", "rate6", "rate6-dkk",
     "rate7", "rate7-dkk", "rate8", "rate8-dkk", "rate9", "rate9-dkk", "rate10", "rate10-dkk", "extrakm-dkk", "moms",
     "forsikring", "total", "dekort", "check-out", "exp-check-in", "check-in"
-])
+]
+df_gmk = df_gmk.drop(columns=Columns_todrop)
 
-# Tilføj dato-kolonner til merge (uden at ændre index)
+# We only keep the rows where these specific cargroups ['SFAR', 'SWAR'] are NOT in the list
+df_gmk = df_gmk[~df_gmk['bilgrp'].isin(['SFAR', 'SWAR', 'GWAR','CCAR', 'CDMR'])]
+
+# Adding date-columns for merge (without changing the index)
 df_gmk["dato"] = pd.to_datetime(df_gmk.index).normalize()
 df_fuel["dato"] = pd.to_datetime(df_fuel["Transaction Date/Time_str"]).dt.normalize()
 
@@ -664,6 +668,9 @@ plt.xticks(rotation=0)
 
 plt.tight_layout()
 plt.show()
+#%%
+#Grouping the cars in sizes as Europcar alsp does on their websites for the customers
+
 # %%
 # lav kolonne for time
 df_gmk["hour"] = df_gmk.index.hour
@@ -695,9 +702,6 @@ plt.xticks(rotation=0)
 
 plt.tight_layout()
 plt.show()
-# %%
-#Now i want to find the volume pr hour of the day seperated into cargroups 
-
 #%%
 # Average fuel volume pr. time pr. dag opdelt på bilgruppe
 
