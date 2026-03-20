@@ -110,18 +110,6 @@ for col in df_fuel.columns:
     print(f"'{col}'")
 print(df_fuel["Transaction Date/Time_str"])
 
-print(len(df_fuel["Transaction Date/Time_str"]=="06-01-2025"))
-
-# Nu samler jeg et nyt dataframe der skal samle fueldataen og indkommende biler på gmk
-# Først hvis de har både samme dato og nummerplade skal de placeres på samme række 
-#If df_gmk["ind.tid"].dt(format="%d-%m-%Y") == df_fuel["Transaction Date/Time_str "]
-df_new = pd.DataFrame(columns = ["Date","Vehicle Number","Product","Volume", "Customer Price", "Total Price"])
-
-if df_data["ind.tid"].dt.date == df_fuel["Transaction Date/Time_str"].dt_fuel.date and df_data["reg.nr"] == df_fuel["Vehicle Number"]:
-    df_new["Date"] = df_fuel["Transaction Date/Time_str"].dt_fuel.date
-    df_new["Vehicle Number","Product","Volume", "Customer Price", "Total Price"] = df_fuel["Vehicle Number","Product","Volume", "Customer Price", "Total Price"]
-
-print(df_new)
 #%%
 # Merging a new dataframe where fueldata and incoming cars are matched 
 
@@ -147,5 +135,10 @@ print(df_new.head())
 print(len(df_new))
 # %%
 #Now we can analyze on how many from specific groups of cars are fueled pr day
-print(df_new["bilgrp"].columnss)
+print("Before merge:")
+print(df_gmk_small["bilgrp"].value_counts(dropna=False))
 
+print("\nAfter merge:")
+print(df_new["bilgrp"].value_counts(dropna=False))
+
+# %%
