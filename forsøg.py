@@ -696,3 +696,44 @@ plt.xticks(rotation=0)
 plt.tight_layout()
 plt.show()
 # %%
+#Now i want to find the volume pr hour of the day seperated into cargroups 
+
+#%%
+# Average fuel volume pr. time pr. dag opdelt på bilgruppe
+
+# lav kolonne for time
+df_gmk["hour"] = df_gmk.index.hour
+
+# sørg for at Volume er numerisk
+df_gmk["Volume"] = pd.to_numeric(df_gmk["Volume"], errors="coerce")
+
+# summer volume per bilgruppe og time
+hour_group_volume = df_gmk.groupby(["bilgrp", "hour"])["Volume"].sum().unstack(fill_value=0)
+
+# sørg for alle timer er med
+hour_group_volume = hour_group_volume.reindex(columns=range(24), fill_value=0)
+
+# antal unikke dage i hele datasættet
+n_days = df_gmk.index.normalize().nunique()
+
+# gennemsnitlig volume pr dag
+hour_group_volume_avg = hour_group_volume / n_days
+
+# transponér så timer bliver x-akse
+plot_data = hour_group_volume_avg.T
+
+# plot
+plt.figure(figsize=(14,6))
+plot_data.plot(kind="bar", width=0.8)
+
+plt.xlabel("Hour of day")
+plt.ylabel("Average fuel volume per day")
+plt.title("Average fuel volume by hour and vehicle group")
+plt.legend(title="Vehicle group")
+plt.xticks(rotation=0)
+
+plt.tight_layout()
+plt.show()
+
+
+# %%
