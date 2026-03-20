@@ -97,6 +97,7 @@ df_gmk = df_gmk.drop(columns=Columns_todrop)
 # We only keep the rows where these specific cargroups ['SFAR', 'SWAR', 'GWAR','CCAR', 'CDMR'] are NOT in the list
 df_gmk = df_gmk[~df_gmk['bilgrp'].isin(['SFAR', 'SWAR', 'GWAR','CCAR', 'CDMR'])]
 
+
 # Adding date-columns for merge (without changing the index)
 df_gmk["dato"] = pd.to_datetime(df_gmk.index).normalize()
 df_fuel["dato"] = pd.to_datetime(df_fuel["Transaction Date/Time_str"]).dt.normalize()
@@ -110,7 +111,6 @@ fuel_per_day = (
     df_fuel.groupby(["dato", "nummerplade"], as_index=False)["Volume"]
     .sum()
 )
-
 #OBS - vi skal ikke summere alt fuel per dag vel?
 
 # Merge fuel ind i df_gmk på dato og nummerplade
@@ -126,7 +126,8 @@ df_gmk = df_gmk.drop(columns=["dato"])
 
 print("Dataframe for gmk with merged Volume", df_gmk.head())
 
-#print("Number of rows with fuel data:", df_fuel["Volume"].notna().sum())
+#Tilføjer at hvis tidspunktet hvor bilen er kommet ind er samme dato - 1 dag efter 17:00 
+#Og samme nummerplade så skal Volumen fra fuel også tages med
 
 
 #%% Kapacitet af grupperne
