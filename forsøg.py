@@ -105,13 +105,12 @@ df_fuel["dato"] = df_fuel["Transaction Date/Time"].dt.normalize()
 # Gør index til kolonne
 df_gmk = df_gmk.reset_index()
 
-
 # Sørg for datetime
-df_gmk["ind.tid"] = pd.to_datetime(df_gmk["ind.tid"], errors="coerce")
+df_gmk["ud.tid"] = pd.to_datetime(df_gmk["ud.tid"], errors="coerce")
 df_fuel["Transaction Date/Time"] = pd.to_datetime(df_fuel["Transaction Date/Time"], errors="coerce")
 
 # -----------------------------
-# Rens nummerplader
+# Rens nummerplader 
 # -----------------------------
 def clean_plate(s):
     if pd.isna(s):
