@@ -100,34 +100,75 @@ df_gmk = df_gmk[~df_gmk['bilgrp'].isin(['SFAR', 'SWAR', 'GWAR','CCAR', 'CDMR'])]
 
 # Adding date-columns for merge (without changing the index)
 df_gmk["dato"] = pd.to_datetime(df_gmk.index).normalize()
+
 df_fuel["dato"] = pd.to_datetime(df_fuel["Transaction Date/Time_str"]).dt.normalize()
 
 # Ensret nummerplader
 df_gmk["nummerplade"] = df_gmk["reg.nr"].astype(str).str.replace(" ", "").str.strip().str.upper()
 df_fuel["nummerplade"] = df_fuel["Vehicle Number"].astype(str).str.strip().str.upper()
 
-# Summer Volume pr. dag pr. nummerplade i df_fuel
-fuel_per_day = (
-    df_fuel.groupby(["dato", "nummerplade"], as_index=False)["Volume"]
-    .sum()
-)
-#OBS - vi skal ikke summere alt fuel per dag vel?
 
-# Merge fuel ind i df_gmk på dato og nummerplade
-df_gmk = df_gmk.reset_index().merge(
-    fuel_per_day,
-    on=["dato", "nummerplade"],
-    how="left"
+# Adding the Fuel Volumes to the df_gmk
+# Help columns with Dato
+df_gmk["dato"] = df_gmk.index.normalize()
+df_fuel["dato"] = df_fuel["Transaction Date/Time"].dt.normalize()
+
+#seeing the dataframe 
+print("Dataframe for gmk before adding fuel rows")
+print(df_gmk.head())
+
+# -----------------------------------------------------------
+# Her laver vi IKKE nogen summering af Volume
+# Vi bruger i stedet hver enkelt række i df_fuel direkte
+#
+# Hvis en bil er kommet ind efter kl. 17, og samme nummerplade
+# findes i df_fuel dagen efter, så oprettes en ny række i df_gmk
+# med fuel-tidspunktet som ind.tid og den enkelte Volume-værdi
+# -----------------------------------------------------------
+
+# Find biler der kom ind efter kl. 17
+late_returns = df_gmk.reset_index().copy()
+late_returns = late_returns[late_returns["ind.tid"].dt.hour >= 17].copy()
+
+# Dagen efter ind.tid
+late_returns["next_day"] = late_returns["ind.tid"].dt.normalize() + pd.Timedelta(days=1)
+
+# Merge direkte med df_fuel på nummerplade
+matches = late_returns.merge(
+    df_fuel,
+    on="nummerplade",
+    how="inner",
+    suffixes=("_gmk", "_fuel")
 )
 
-# Sæt ind.tid tilbage som index og fjern hjælpekolonnen 'dato' hvis ønsket
-df_gmk = df_gmk.set_index("ind.tid")
+# Behold kun fuel-poster som ligger dagen efter
+matches = matches[matches["dato_fuel"] == matches["next_day"]].copy()
+
+# Byg nye rækker ud fra df_gmk-strukturen
+base_cols = df_gmk.reset_index().columns.tolist()
+new_rows = matches[[col for col in base_cols if col in matches.columns]].copy()
+
+# Erstat tidspunktet med fuel-tidspunktet
+new_rows["ind.tid"] = matches["Transaction Date/Time"]
+
+# Sæt den enkelte fuel Volume på rækken
+new_rows["Volume"] = matches["Volume"]
+
+# Hvis du ikke vil beholde hjælpekolonnen dato
+if "dato" in new_rows.columns:
+    new_rows = new_rows.drop(columns=["dato"])
+
+# Sæt index tilbage
+new_rows = new_rows.set_index("ind.tid")
+
+# Fjern dato fra original df_gmk inden concat
 df_gmk = df_gmk.drop(columns=["dato"])
 
-print("Dataframe for gmk with merged Volume", df_gmk.head())
+# Tilføj de nye fuel-rækker
+df_gmk = pd.concat([df_gmk, new_rows], axis=0).sort_index()
 
-#Tilføjer at hvis tidspunktet hvor bilen er kommet ind er samme dato - 1 dag efter 17:00 
-#Og samme nummerplade så skal Volumen fra fuel også tages med
+print("Dataframe for gmk after adding fuel rows")
+print(df_gmk.head(20))
 
 
 #%% Kapacitet af grupperne
