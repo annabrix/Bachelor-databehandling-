@@ -107,7 +107,7 @@ df_gmk = df_gmk.reset_index()
 
 
 # Sørg for datetime
-df_gmk["ud.tid"] = pd.to_datetime(df_gmk["ud.tid"], errors="coerce")
+df_gmk["ind.tid"] = pd.to_datetime(df_gmk["ind.tid"], errors="coerce")
 df_fuel["Transaction Date/Time"] = pd.to_datetime(df_fuel["Transaction Date/Time"], errors="coerce")
 
 # -----------------------------
