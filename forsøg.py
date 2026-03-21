@@ -127,7 +127,7 @@ df_fuel = df_fuel.copy()
 df_gmk["nummerplade"] = df_gmk["reg.nr"].apply(clean_plate)
 df_fuel["nummerplade"] = df_fuel["Vehicle Number"].apply(clean_plate)
 
-# Behold kun realistiske nummerplader
+# Behold kun realistiske nummerplader / - eller kigge igennem de mærkelige og matche dem op senere?
 df_gmk = df_gmk[df_gmk["nummerplade"].apply(looks_like_plate)].copy()
 df_fuel = df_fuel[df_fuel["nummerplade"].apply(looks_like_plate)].copy()
 
@@ -266,7 +266,17 @@ fuel_to_gmk_no_limit["timediff_timer"] = (
 print(fuel_to_gmk_no_limit["timediff_timer"].describe())
 
 unmatched = fuel_to_gmk_no_limit[fuel_to_gmk_no_limit["ind.tid"].isna()]
+
 print("Uden match uden tidsgrænse:", len(unmatched))
+
+#Realizing that fuel to gmk with no time limit will reach the most values 
+#because we are only interested in matching ALL fuel volumes to the type of cars
+#To later be able to calculate the fuel to energy demand 
+df_gmk = fuel_to_gmk_no_limit
+
+print(df_gmk.head())
+print(df_gmk.columns())
+
 #%% Kapacitet af grupperne
 
 
