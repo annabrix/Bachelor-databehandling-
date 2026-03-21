@@ -1016,7 +1016,7 @@ plt.tight_layout()
 plt.show()
 
 #%%
-# Average fuel volume pr. time pr. dag opdelt på de nye samlede bilgrupper
+# Average fuel volume pr. hour pr. dag opdelt på de nye samlede bilgrupper
 
 # Kopi så du ikke overskriver originalen
 df_plot = df_gmk_fuel.copy()
@@ -1057,8 +1057,131 @@ plt.figure(figsize=(14, 6))
 plot_data.plot(kind="bar", width=0.8)
 
 plt.xlabel("Hour of day")
-plt.ylabel("Average fuel volume per day")
+plt.ylabel("Average fuel volumen at the specific hour")
 plt.title("Average fuel volume by hour and vehicle group")
+plt.legend(title="Vehicle group")
+plt.xticks(rotation=0)
+plt.tight_layout()
+plt.show()
+
+#%% 
+#Now we want to use the specific averages pr hour 
+#To calculate the average energy consumption pr hour and then plot it ofc
+#We need to calculate the Energy Consumption from the gaathered groups:
+# -----------------------------
+# Create energy consumption from bilgrp_samlet
+# -----------------------------
+df_gmk_fuel = df_gmk_fuel.copy()
+
+# Make sure relevant columns are usable
+df_gmk_fuel["Volume"] = pd.to_numeric(df_gmk_fuel["Volume"], errors="coerce")
+df_gmk_fuel["bilgrp_samlet"] = df_gmk_fuel["bilgrp_samlet"].astype(str).str.strip().str.upper()
+
+# Initialize new column
+df_gmk_fuel["en_consumption"] = np.nan
+
+# Use bilgrp_samlet instead of bilgrp
+første = df_gmk_fuel["bilgrp_samlet"].str[0]
+andet = df_gmk_fuel["bilgrp_samlet"].str[1:2]
+
+km_map = {
+    "O": 20.5,
+    "A": 19.0,
+    "B": 17.75,
+    "C": 17.0,
+    "D": 16.5,
+    "E": 16.25,
+    "F": 18.5,
+    "X": 17.25,
+    "G": 17.33,
+    "H": 15.5,
+    "L": 14.0,
+    "M": 13.5,
+    "I": 16.0,
+    "J": 12.5,
+    "V": 12.5,
+    "1": 16.475,
+    "3": 17.5,
+    "4": 13.0,
+}
+
+km_kWh_map = {
+    "OE": 6.5,
+    "AE": 7.1,
+    "BE": 6.7,
+    "CE": 6.43,
+    "DE": 6.15,
+    "EE": 6.2,
+    "HE": 6.4,
+    "IE": 6.4,
+    "LE": 6.167,
+    "FE": 6.167,
+    "GE": 6.167,
+    "XE": 6.167,
+    "ME": 5.9,
+    "JE": 4.85,
+    "VE": 3.1,
+    "1E": 5.65,
+    "3E": 3.75,
+    "4E": 3.1,
+}
+
+# Only calculate for non-E gathered groups
+mask = første.isin(km_map) & ~andet.eq("E")
+
+df_gmk_fuel.loc[mask, "en_consumption"] = (
+    df_gmk_fuel.loc[mask, "Volume"]
+    * første.map(km_map)[mask]
+    / (første + "E").map(km_kWh_map)[mask]
+)
+
+print("Rows with energy consumption:", df_gmk_fuel["en_consumption"].notna().sum())
+print(df_gmk_fuel[["bilgrp", "bilgrp_samlet", "Volume", "en_consumption"]].dropna().head(20))
+
+#AND now we can plot the energy consumption pr hour pr group:
+# -----------------------------
+# Average energy consumption per hour per day by gathered group
+# -----------------------------
+df_plot = df_gmk_fuel.copy()
+
+# Ensure datetime
+df_plot["ind.tid"] = pd.to_datetime(df_plot["ind.tid"], errors="coerce")
+
+# Hour column
+df_plot["hour"] = df_plot["ind.tid"].dt.hour
+
+# Ensure numeric
+df_plot["en_consumption"] = pd.to_numeric(df_plot["en_consumption"], errors="coerce")
+
+# Drop rows missing needed values
+df_plot = df_plot.dropna(subset=["ind.tid", "en_consumption", "bilgrp_samlet"])
+
+# Sum energy by gathered group and hour
+hour_group_energy = (
+    df_plot.groupby(["bilgrp_samlet", "hour"])["en_consumption"]
+    .sum()
+    .unstack(fill_value=0)
+)
+
+# Ensure all hours are present
+hour_group_energy = hour_group_energy.reindex(columns=range(24), fill_value=0)
+
+# Number of unique days
+n_days = df_plot["ind.tid"].dt.normalize().nunique()
+
+# Average per day
+hour_group_energy_avg = hour_group_energy / n_days
+
+# Transpose for plotting
+plot_data = hour_group_energy_avg.T
+
+# Plot
+plt.figure(figsize=(14, 6))
+plot_data.plot(kind="bar", width=0.8)
+
+plt.xlabel("Hour of day")
+plt.ylabel("Average energy consumption at the specific hour [kWh/day]")
+plt.title("Average energy consumption by hour and gathered vehicle group")
 plt.legend(title="Vehicle group")
 plt.xticks(rotation=0)
 plt.tight_layout()
