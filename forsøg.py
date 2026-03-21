@@ -103,6 +103,24 @@ df_gmk = df_gmk.drop(columns=Columns_todrop)
 # We only keep the rows where these specific cargroups ['SFAR', 'SWAR', 'GWAR','CCAR', 'CDMR'] are NOT in the list
 df_gmk = df_gmk[~df_gmk['bilgrp'].isin(['SFAR', 'SWAR', 'GWAR','CCAR', 'CDMR'])]
 
+#Gathering groups in "bilgrp" that translates to cargroups here:
+bevar_prefix = {"AE", "BE", "CE", "DE", "EE", "HE", "IE", "LE", "FE", "GE", "XE", "ME", "JE", "VE", "1E", "3E", "4E"}
+
+def saml_gruppe(x):
+    if pd.isna(x):
+        return x
+    
+    x = str(x).strip().upper()
+    if not x:
+        return x
+    
+    if len(x) >= 2 and x[:2] in bevar_prefix:
+        return x
+    
+    return x[0]
+
+# ny kolonne, ikke overskriv originalen
+df_gmk["bilgrp_samlet"] = df_gmk["bilgrp"].apply(saml_gruppe)
 
 # Adding date-columns for merge (without changing the index)
 df_gmk["dato"] = pd.to_datetime(df_gmk.index).normalize()
@@ -196,7 +214,7 @@ df_gmk = df_gmk.set_index("ind.tid").copy()
 # Hvor mange fuel-rækker finder et match? 
 # -----------------------------
 gmk_check = (
-    df_gmk.reset_index()[["ind.tid","nummerplade","bilgrp","reg.nr","ud.tid"]]
+    df_gmk.reset_index()[["ind.tid","nummerplade","bilgrp","reg.nr","ud.tid", "bilgrp_samlet"]]
     .dropna(subset=["ind.tid","nummerplade"])
     .sort_values("ind.tid")
     .copy()
@@ -268,12 +286,16 @@ print("Uden match uden tidsgrænse:", len(unmatched))
 #Realizing that fuel to gmk with no time limit will reach the most values 
 #because we are only interested in matching ALL fuel volumes to the type of cars
 #To later be able to calculate the fuel to energy demand 
-df_gmk_fuel = fuel_to_gmk_no_limit
 
+df_gmk_fuel = fuel_to_gmk_no_limit.copy()
+print(type(df_gmk_fuel))
 print(df_gmk_fuel)
 print("All Columns in df_gmk after merge:",df_gmk_fuel.columns)
+#%%
 print("Number of rows after the fuel merge on unlimited time:", df_gmk_fuel["Volume"].notna().sum())
-
+print("Antal matchede rækker:", df_gmk_fuel["ind.tid"].notna().sum())
+print("Antal unmatched rækker:", df_gmk_fuel["ind.tid"].isna().sum())
+print("Antal rækker i alt:", len(df_gmk_fuel))
 
 # -----------------------------
 # Overlap i nummerplader
@@ -375,6 +397,8 @@ print(df_gmk_fuel["Volume"].notna().sum())
 #     .head(20)
 # )
 
+#%%
+#Now i would like to visualize the Energy Consumption pr group 
 
 #%%
 df_gmk_fuel = df_gmk_fuel[df_gmk_fuel.index <= "2025-12-31"]
@@ -887,6 +911,7 @@ plt.show()
 #Grouping the cars in sizes as Europcar alsp does on their websites for the customers
 
 # %%
+#This is for the gmk dataset without Fuel Volumes hence bigger  
 # lav kolonne for time
 df_gmk["hour"] = df_gmk.index.hour
 
@@ -919,6 +944,7 @@ plt.tight_layout()
 plt.show()
 
 #%%
+#Now we would like to gather the cargroups into smaller groups that match Europcars Website
 
 print(df_gmk["bilgrp"].dropna().astype(str).head(50).tolist())
 #%%
@@ -955,34 +981,79 @@ counts = (
 )
 
 print(counts[counts.index.isin(bevar_prefix)])
-
 #%%
-# Average fuel volume pr. time pr. dag opdelt på bilgruppe
-
-
+#Now that we have gathered the groups we will make the same plot again
+#This is for the gmk dataset without Fuel Volumes hence bigger  
 # lav kolonne for time
 df_gmk["hour"] = df_gmk.index.hour
 
-# sørg for at Volume er numerisk
-df_gmk["Volume"] = pd.to_numeric(df_gmk["Volume"], errors="coerce")
-
-# summer volume per bilgruppe og time
-hour_group_volume = df_gmk.groupby(["bilgrp_samlet", "hour"])["Volume"].sum().unstack(fill_value=0)
+# Tæller ankomster per bilgruppe og time
+hour_group_counts = df_gmk.groupby(["bilgrp_samlet", "hour"]).size().unstack(fill_value=0)
 
 # sørg for alle timer er med
-hour_group_volume = hour_group_volume.reindex(columns=range(24), fill_value=0)
+hour_group_counts = hour_group_counts.reindex(columns=range(24), fill_value=0)
 
-# antal unikke dage i hele datasættet
+# Antal unikke dage i hele datasættet
 n_days = df_gmk.index.normalize().nunique()
 
-# gennemsnitlig volume pr dag
-hour_group_volume_avg = hour_group_volume / n_days
+# Gennemsnit pr dag
+hour_group_avg = hour_group_counts / n_days
 
-# transponér så timer bliver x-akse
-plot_data = hour_group_volume_avg.T
+# Transponér → timer på x-akse
+plot_data = hour_group_avg.T
 
 # plot
 plt.figure(figsize=(14,6))
+plot_data.plot(kind="bar", width=0.8)
+
+plt.xlabel("Hour of day")
+plt.ylabel("Average number of arrivals per day")
+plt.title("Average car arrivals by hour and vehicle group")
+plt.legend(title="Vehicle group")
+plt.xticks(rotation=0)
+
+plt.tight_layout()
+plt.show()
+
+#%%
+# Average fuel volume pr. time pr. dag opdelt på de nye samlede bilgrupper
+
+# Kopi så du ikke overskriver originalen
+df_plot = df_gmk_fuel.copy()
+
+# Sørg for datetime
+df_plot["ind.tid"] = pd.to_datetime(df_plot["ind.tid"], errors="coerce")
+
+# Lav kolonne for time
+df_plot["hour"] = df_plot["ind.tid"].dt.hour
+
+# Sørg for at Volume er numerisk
+df_plot["Volume"] = pd.to_numeric(df_plot["Volume"], errors="coerce")
+
+# Fjern rækker hvor nødvendige værdier mangler
+df_plot = df_plot.dropna(subset=["ind.tid", "Volume", "bilgrp_samlet"])
+
+# Summer volume per bilgruppe og time
+hour_group_volume = (
+    df_plot.groupby(["bilgrp_samlet", "hour"])["Volume"]
+    .sum()
+    .unstack(fill_value=0)
+)
+
+# Sørg for alle timer er med
+hour_group_volume = hour_group_volume.reindex(columns=range(24), fill_value=0)
+
+# Antal unikke dage i hele datasættet
+n_days = df_plot["ind.tid"].dt.normalize().nunique()
+
+# Gennemsnitlig volume pr dag
+hour_group_volume_avg = hour_group_volume / n_days
+
+# Transponér så timer bliver x-akse
+plot_data = hour_group_volume_avg.T
+
+# Plot
+plt.figure(figsize=(14, 6))
 plot_data.plot(kind="bar", width=0.8)
 
 plt.xlabel("Hour of day")
@@ -990,7 +1061,6 @@ plt.ylabel("Average fuel volume per day")
 plt.title("Average fuel volume by hour and vehicle group")
 plt.legend(title="Vehicle group")
 plt.xticks(rotation=0)
-
 plt.tight_layout()
 plt.show()
 
