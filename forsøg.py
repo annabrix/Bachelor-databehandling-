@@ -747,8 +747,6 @@ import seaborn as sns
 #plt.title("Average values by hour")
 
 #plt.show()
-
-#%%
 #%%
 # Undersøger hvor mange udlejninger vs antallet af udlejningsdage
 # For at se fordelingen i udlejningsperioderne:
@@ -1184,6 +1182,49 @@ plt.ylabel("Average energy consumption at the specific hour [kWh/day]")
 plt.title("Average energy consumption by hour and gathered vehicle group")
 plt.legend(title="Vehicle group")
 plt.xticks(rotation=0)
+plt.tight_layout()
+plt.show()
+
+#%%
+#What will then be the number of chargers needed?
+# Total average hourly energy demand across all groups
+total_hourly_energy = hour_group_energy_avg.sum(axis=0)   # one value per hour
+
+# Equivalent average number of 11 kW chargers in use
+chargers_11kw_avg = total_hourly_energy / 11
+
+# Rounded up to whole chargers
+chargers_11kw_needed = np.ceil(chargers_11kw_avg)
+
+charger_summary = pd.DataFrame({
+    "avg_energy_kWh": total_hourly_energy,
+    "avg_chargers_11kW": chargers_11kw_avg,
+    "chargers_11kW_rounded_up": chargers_11kw_needed
+})
+
+print(charger_summary)
+
+print("Peak average hourly energy demand [kWh]:", total_hourly_energy.max())
+print("Peak average chargers needed:", chargers_11kw_avg.max())
+print("Peak average chargers needed (rounded up):", int(np.ceil(chargers_11kw_avg.max())))
+
+#%%
+#For summary of the calculations we plot the charger need here:
+plt.figure(figsize=(12, 5))
+
+plt.bar(
+    charger_summary.index,
+    charger_summary["chargers_11kW_rounded_up"],
+    color="green"
+)
+
+plt.xlabel("Hour of day")
+plt.ylabel("Number of 11 kW chargers (rounded up)")
+plt.title("Required number of 11 kW chargers by hour")
+
+plt.xticks(range(24))
+plt.grid(axis="y", linestyle="--", alpha=0.5)
+
 plt.tight_layout()
 plt.show()
 
