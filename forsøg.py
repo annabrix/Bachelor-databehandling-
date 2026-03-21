@@ -26,11 +26,9 @@ file_EV = os.path.join(os.getcwd(), 'elbiler.csv')
 
 
 df_data1 = pd.read_csv(file_PE, sep=';', encoding='latin1')
-#print(len(df_data1))
-
 df_data2 = pd.read_csv(file_PE2, sep=';', encoding='latin1')
 df_fuel = pd.read_csv(file_fuel, sep=',')
-df_EV_charge = pd.read_csv(file_EV, sep=',')
+df_EV_charge = pd.read_csv(file_EV, sep=';', encoding='latin1')
 
 # samler de to datasæt, så vi kigger på et helt år
 df_data = pd.concat([df_data1, df_data2], ignore_index=True)
@@ -888,3 +886,94 @@ plt.show()
 
 
 # %%
+
+#1/10-25 -> 21/03-26
+ 
+# Rens kolonnen - fjern %, konverter til tal
+fuel_col = "ELEKTRIK % / FUEL"
+df_EV_charge[fuel_col] = df_EV_charge[fuel_col].astype(str).str.replace("%", "").str.replace(",", ".").str.strip()
+df_EV_charge[fuel_col] = pd.to_numeric(df_EV_charge[fuel_col], errors="coerce")
+
+# Filtrer kun rækker med gyldige tal (SOC-værdier mellem 0-100)
+soc = df_EV_charge[fuel_col].dropna()
+soc = soc[(soc >= 0) & (soc <= 100)]
+
+# Definer intervaller
+bins = [0, 20, 40, 60, 80, 100]
+labels = ["0-20%", "20-40%", "40-60%", "60-80%", "80-100%"]
+
+# Tæl og beregn andele
+counts = pd.cut(soc, bins=bins, labels=labels, include_lowest=True).value_counts().sort_index()
+pct = counts / counts.sum() * 100
+
+# Plot
+fig, ax = plt.subplots(figsize=(8, 5))
+bars = ax.bar(pct.index, pct.values, color=["#d32f2f", "#f57c00", "#fbc02d", "#1976d2",  "#388e3c"])
+
+
+# Tilføj procent-labels oven på søjlerne
+for bar, val in zip(bars, pct.values):
+    ax.text(bar.get_x() + bar.get_width() / 2, bar.get_height() + 0.5,
+            f"{val:.1f}%", ha="center", va="bottom", fontsize=11)
+
+ax.set_xlabel("SOC ved ankomst", fontsize=12)
+ax.set_ylabel("Andel af biler (%)", fontsize=12)
+ax.set_title("Fordeling af SOC ved ankomst", fontsize=14)
+ax.set_ylim(0, pct.max() * 1.15)
+plt.tight_layout()
+plt.savefig("soc_fordeling.png", dpi=150)
+plt.show()
+
+#%%
+
+# SOC
+fuel_col = "ELEKTRIK % / FUEL"
+df_EV_charge[fuel_col] = df_EV_charge[fuel_col].astype(str).str.replace("%", "").str.replace(",", ".").str.strip()
+df_EV_charge[fuel_col] = pd.to_numeric(df_EV_charge[fuel_col], errors="coerce")
+soc = df_EV_charge[fuel_col].dropna()
+soc = soc[(soc >= 0) & (soc <= 100)]
+
+bins = [0, 20, 40, 60, 80, 100]
+labels = ["0-20%", "20-40%", "40-60%", "60-80%", "80-100%"]
+counts_soc = pd.cut(soc, bins=bins, labels=labels, include_lowest=True).value_counts().sort_index()
+pct_soc = counts_soc / counts_soc.sum() * 100
+
+# --- Fuel-plot 
+df_fuel["Volume"] = df_fuel["Volume"].astype(str).str.replace(",", ".").str.strip()
+df_fuel["Volume"] = pd.to_numeric(df_fuel["Volume"], errors="coerce")
+volume = df_fuel["Volume"].dropna()
+volume = volume[volume > 0]
+
+# Definer intervaller baseret på data
+vol_max = volume.max()
+vol_bins = [0, 20, 40, 60, 80, vol_max]
+vol_labels = [f"0-20L", "20-40L", "40-60L", "60-80L", f"80-{vol_max:.0f}L"]
+counts_fuel = pd.cut(volume, bins=vol_bins, labels=vol_labels, include_lowest=True).value_counts().sort_index()
+pct_fuel = counts_fuel / counts_fuel.sum() * 100
+
+# --- Plot begge side om side ---
+fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(14, 5))
+
+# SOC
+bars1 = ax1.bar(pct_soc.index, pct_soc.values, color=["#d32f2f", "#f57c00", "#fbc02d", "#388e3c", "#1976d2"])
+for bar, val in zip(bars1, pct_soc.values):
+    ax1.text(bar.get_x() + bar.get_width() / 2, bar.get_height() + 0.5,
+             f"{val:.1f}%", ha="center", va="bottom", fontsize=11)
+ax1.set_xlabel("SOC ved ankomst", fontsize=12)
+ax1.set_ylabel("Andel af biler (%)", fontsize=12)
+ax1.set_title("Fordeling af SOC ved ankomst (EL)", fontsize=14)
+ax1.set_ylim(0, pct_soc.max() * 1.15)
+
+# Fuel
+bars2 = ax2.bar(pct_fuel.index, pct_fuel.values, color=["#d32f2f", "#f57c00", "#fbc02d", "#388e3c", "#1976d2"])
+for bar, val in zip(bars2, pct_fuel.values):
+    ax2.text(bar.get_x() + bar.get_width() / 2, bar.get_height() + 0.5,
+             f"{val:.1f}%", ha="center", va="bottom", fontsize=11)
+ax2.set_xlabel("Volumen (liter)", fontsize=12)
+ax2.set_ylabel("Andel af tankninger (%)", fontsize=12)
+ax2.set_title("Fordeling af tankvolumen (BRÆNDSTOF)", fontsize=14)
+ax2.set_ylim(0, pct_fuel.max() * 1.15)
+
+plt.tight_layout()
+plt.savefig("fordeling.png", dpi=150)
+plt.show()
